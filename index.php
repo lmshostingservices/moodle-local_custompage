@@ -28,6 +28,7 @@ use core_reportbuilder\system_report_factory;
 use local_custompage\reportbuilder\local\systemreports\pages_list;
 
 require_once(__DIR__ . '/../../config.php');
+require_login();
 require_once("{$CFG->libdir}/adminlib.php");
 
 admin_externalpage_setup(

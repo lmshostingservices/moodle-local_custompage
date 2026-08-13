@@ -33,6 +33,7 @@ use local_custompage\output\dynamictabs\content;
 use local_custompage\output\dynamictabs\details;
 
 require_once(__DIR__ . '/../../config.php');
+require_login();
 require_once("{$CFG->libdir}/adminlib.php");
 
 $pageid = required_param('id', PARAM_INT);
