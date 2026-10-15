@@ -46,6 +46,7 @@ class page {
      */
     public static function save_from_form(stdClass $data, ?page_model $page): page_model {
         global $DB;
+        $existed = (bool) $page;
 
         $issection = !empty($data->iscontainer);
         $parent = $issection ? 0 : (int) ($data->parent ?? 0);
@@ -122,6 +123,11 @@ class page {
             $selection = (object) ['allusers' => false, 'guests' => false, 'roles' => [], 'users' => []];
         }
         audience_helper::set_selection((int) $page->get('id'), $selection);
+
+        if (!$issection) {
+            standards::save_from_form((int) $page->get('id'), $data);
+            acknowledge::after_save($page, $data, $existed);
+        }
 
         $transaction->allow_commit();
         return $page;
@@ -222,6 +228,8 @@ class page {
             $record->delete();
         }
         $DB->delete_records('local_custompage_feedback', ['pageid' => $pageid]);
+        // Read confirmations stay as audit history (they keep the page's name); its standards go.
+        standards::delete_for_page($pageid);
         context_helper::delete_instance(CONTEXT_CUSTOMPAGE, $pageid);
         $result = $page->delete();
 

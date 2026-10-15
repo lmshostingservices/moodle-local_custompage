@@ -29,6 +29,8 @@
         <FIELD NAME="look" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false" COMMENT="built-in look of a resource hub"/>
         <FIELD NAME="ownerid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="person responsible for keeping the page up to date"/>
         <FIELD NAME="reviewby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="date the page should next be reviewed"/>
+        <FIELD NAME="requireack" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 = readers confirm they have read it (on a hub: every resource in it)"/>
+        <FIELD NAME="ackversion" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="raised when readers must confirm again"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -80,6 +82,38 @@
       <INDEXES>
         <INDEX NAME="pageuser" UNIQUE="true" FIELDS="pageid, userid"/>
       </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_custompage_ack" COMMENT="Confirmations that a person has read a page (one row per page version confirmed)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="pageid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="version" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="the page's ackversion that was confirmed"/>
+        <FIELD NAME="pagename" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="the page's name when confirmed"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="pageid" TYPE="foreign" FIELDS="pageid" REFTABLE="local_custompages" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="pageuserversion" UNIQUE="true" FIELDS="pageid, userid, version"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_custompage_standard" COMMENT="Standards a page addresses, for example RTO Standards 2025, 1.11, Student management">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="pageid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="framework" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="for example RTO Standards 2025"/>
+        <FIELD NAME="code" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="for example 1.11"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="for example Student management"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="pageid" TYPE="foreign" FIELDS="pageid" REFTABLE="local_custompages" REFFIELDS="id"/>
+      </KEYS>
     </TABLE>
   </TABLES>
 </XMLDB>

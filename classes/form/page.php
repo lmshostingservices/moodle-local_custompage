@@ -131,15 +131,74 @@ class page extends dynamic_form {
             'ajax' => 'core_user/form_user_selector',
             'multiple' => false,
             'noselectionstring' => get_string('noowner', 'local_custompage'),
-            'valuehtmlcallback' => static function ($userid) {
-                $user = $userid ? \core_user::get_user($userid) : null;
-                return $user ? fullname($user) : false;
-            },
+            // A named callable rather than a closure: forms with repeating rows are cloned, and closures can't be.
+            'valuehtmlcallback' => [self::class, 'owner_label'],
         ]);
         $mform->setType('ownerid', PARAM_INT);
         $mform->addHelpButton('ownerid', 'owner', 'local_custompage');
         $mform->addElement('date_selector', 'reviewby', get_string('reviewby', 'local_custompage'), ['optional' => true]);
         $mform->addHelpButton('reviewby', 'reviewby', 'local_custompage');
+    }
+
+    /**
+     * Name shown for the chosen owner.
+     *
+     * @param int|string $userid
+     * @return string|false
+     */
+    public static function owner_label($userid) {
+        $user = $userid ? \core_user::get_user((int) $userid) : null;
+        return $user ? fullname($user) : false;
+    }
+
+    /**
+     * "I have read this" settings.
+     *
+     * @param \MoodleQuickForm $mform
+     * @param string $kind 'hub' (asks for every resource) or 'page'
+     * @param bool $existing Whether the page already exists (then it can ask everyone to confirm again)
+     * @param bool $hubrequires Whether the page's hub already asks for every resource
+     */
+    public static function add_confirmation_fields(
+        \MoodleQuickForm $mform,
+        string $kind,
+        bool $existing,
+        bool $hubrequires = false
+    ): void {
+        $mform->addElement('header', 'ackheader', get_string('ack_header', 'local_custompage'));
+        if ($kind === 'hub') {
+            $mform->addElement(
+                'advcheckbox',
+                'requireack',
+                get_string('ack_require', 'local_custompage'),
+                get_string('ack_require_hub', 'local_custompage')
+            );
+            $mform->addHelpButton('requireack', 'ack_require', 'local_custompage');
+            return;
+        }
+        if ($hubrequires) {
+            $mform->addElement(
+                'static',
+                'ackbyhub',
+                get_string('ack_require', 'local_custompage'),
+                get_string('ack_require_byhub', 'local_custompage')
+            );
+        } else {
+            $mform->addElement(
+                'advcheckbox',
+                'requireack',
+                get_string('ack_require', 'local_custompage'),
+                get_string('ack_require_page', 'local_custompage')
+            );
+            $mform->addHelpButton('requireack', 'ack_require', 'local_custompage');
+        }
+        if ($existing) {
+            $mform->addElement('advcheckbox', 'askagain', '', get_string('ack_askagain', 'local_custompage'));
+            $mform->addHelpButton('askagain', 'ack_askagain', 'local_custompage');
+            if (!$hubrequires) {
+                $mform->hideIf('askagain', 'requireack', 'notchecked');
+            }
+        }
     }
 
     /**
@@ -155,6 +214,9 @@ class page extends dynamic_form {
         }
         if (property_exists($data, 'reviewby')) {
             $fields['reviewby'] = (int) $data->reviewby ?: null;
+        }
+        if (property_exists($data, 'requireack')) {
+            $fields['requireack'] = (int) !empty($data->requireack);
         }
         return $fields;
     }
@@ -329,6 +391,19 @@ class page extends dynamic_form {
         $mform->addElement('header', 'ownershipheader', get_string('ownership', 'local_custompage'));
         self::add_ownership_fields($mform);
 
+        // Read confirmation and standards (pages only).
+        if (!$issection) {
+            $existing = $this->get_custom_page();
+            $hubrequires = $existing && $existing->get('parent')
+                && (bool) $GLOBALS['DB']->get_field('local_custompages', 'requireack', ['id' => $existing->get('parent')]);
+            self::add_confirmation_fields($mform, 'page', (bool) $existing, $hubrequires);
+            \local_custompage\local\helpers\standards::add_form_fields(
+                $this,
+                $mform,
+                $existing ? count(\local_custompage\local\helpers\standards::get_for_page((int) $existing->get('id'))) : 0
+            );
+        }
+
         $mform->addElement('header', 'audienceheader', get_string('whocansee', 'local_custompage'));
         $mform->setExpanded('audienceheader', true);
         $mform->addElement('static', 'managersnote', '', get_string('whocansee_desc', 'local_custompage'));
@@ -355,10 +430,7 @@ class page extends dynamic_form {
             'ajax' => 'core_user/form_user_selector',
             'multiple' => true,
             'noselectionstring' => get_string('none'),
-            'valuehtmlcallback' => static function ($userid) {
-                $user = \core_user::get_user($userid);
-                return $user ? fullname($user) : false;
-            },
+            'valuehtmlcallback' => [self::class, 'owner_label'],
         ]);
         if (!$issection) {
             // When the page uses its section's audience, the choices below do not apply.
@@ -428,6 +500,10 @@ class page extends dynamic_form {
             $data->aud_guests = (int) $selection->guests;
             $data->aud_roles = $selection->roles;
             $data->aud_users = $selection->users;
+            $data = (object) array_merge(
+                (array) $data,
+                \local_custompage\local\helpers\standards::form_data((int) $page->get('id'))
+            );
         }
 
         $data = file_prepare_standard_editor(

@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.3.0] - 2026-10-15
+
+### Added
+- **Read confirmation.** A page (or every resource in a hub) can ask readers to confirm "I have read and understood
+  this procedure". The confirm button works once the box is ticked; the date and time are recorded and logged.
+  - After a significant change, "Ask everyone to confirm again" raises the page's version: earlier confirmations show
+    as "Confirmed an earlier version" and are kept as history.
+  - The hub list marks confirmed pages with a tick and pages still to confirm with a dot; hub cards show "To confirm"
+    or "Confirmed"; the intranet home lists each person's procedures to read and confirm.
+- **Standards.** Each document can list the standards it addresses (Framework, Number, Name, for example
+  RTO Standards 2025 · 1.11 · Student management), with "Add another standard". They show under the page title.
+- **Read confirmations report** (Site administration › Appearance › Custom pages › Read confirmations, and a button on
+  the Custom pages screen): every document that asks for confirmation against every person it is meant for.
+  - Totals overall and per document, then one row per person and document: roles, email, department, standards,
+    version, status and when they confirmed.
+  - Filters: document, hub, standards framework, standard, role, status and staff member (name, email or department);
+    order by document or by staff member. A Full history tab lists every confirmation of every version.
+  - Exports: CSV, Excel and PDF (with who ran it, when, the time zone and the filters used), for auditors.
+  - New capability *See and export the read confirmations report* (Manager by default), so compliance staff or an
+    auditor's account can have the report without managing pages.
+- Confirmations are kept when a page is deleted, so the audit trail stays complete.
+- Privacy: confirmations are included in data exports and deletions.
+
 ## [2.2.4] - 2026-10-15
 
 ### Fixed

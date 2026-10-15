@@ -231,6 +231,48 @@ const initFeedback = root => {
 };
 
 /**
+ * "I have read and understood this": the button works once the box is ticked, and records the confirmation.
+ *
+ * @param {HTMLElement} root
+ */
+const initAck = root => {
+    const box = root.querySelector('[data-region="lcp-ack"]');
+    const form = box?.querySelector('.lcp-ack-form');
+    if (!form) {
+        return;
+    }
+    const check = form.querySelector('[data-region="lcp-ack-check"]');
+    const button = form.querySelector('button[type="submit"]');
+    const done = box.querySelector('.lcp-ack-done');
+    check.addEventListener('change', () => {
+        button.disabled = !check.checked;
+    });
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!check.checked || button.disabled) {
+            return;
+        }
+        button.disabled = true;
+        try {
+            const result = await Ajax.call([{
+                methodname: 'local_custompage_ack_confirm',
+                args: {pageid: parseInt(box.dataset.pageid, 10)},
+            }])[0];
+            form.remove();
+            box.querySelector('.lcp-ack-note')?.remove();
+            box.classList.add('is-done');
+            done.textContent = result.message;
+            done.hidden = false;
+            // Mark the page as confirmed in the hub list.
+            root.querySelector('.lcp-spine-item.is-current .lcp-spine-ack')?.classList.add('is-done');
+        } catch (err) {
+            button.disabled = false;
+            Notification.exception(err);
+        }
+    });
+};
+
+/**
  * Set up a reader page or hub.
  *
  * @param {string} selector The page's outer element
@@ -244,4 +286,5 @@ export const init = selector => {
     initHubNav(root);
     initOutline(root);
     initFeedback(root);
+    initAck(root);
 };

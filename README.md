@@ -30,6 +30,12 @@ Every page reads like a modern intranet:
 - **Was this page helpful?** People answer Yes or No and can add a comment. Totals appear in the Custom pages list, with every comment one click away.
 - **Clean for readers.** Edit buttons only appear while Edit mode is on.
 
+Proof for audits:
+
+- **"I have read and understood this."** Ask readers of a page, or of every resource in a hub, to confirm they have read it. The date and time are recorded. After a significant change, *Ask everyone to confirm again* starts a new version and keeps the earlier confirmations as history. Staff see what they still have to confirm on the intranet home, in the hub list and on the hub's cards.
+- **Standards.** List the standards each document addresses (for example *RTO Standards 2025 · 1.11 · Student management*). They show under the page title.
+- **Read confirmations report.** Every document against every person it is meant for, with totals per document. Filter by document, hub, framework, standard, role, status or staff member, see the full history, and export CSV, Excel or a PDF that records who ran it, when and with which filters.
+
 Also:
 
 - **Your own design.** Upload an HTML file, or a .txt file holding the HTML (for example one made with ChatGPT), for a single page, a hub's banner or a hub resource, and its styles are applied to that page only, never to the rest of the site. Scripts and anything else that could run code are removed.
@@ -75,6 +81,7 @@ Resources in a hub follow the hub's choice. A single page can use the same choic
 | Capability | Default | Allows |
 |---|---|---|
 | `local/custompage:manage` | Manager role (and site admins) | Create, edit, reorder and delete hubs and pages, download the ChatGPT prompt, and see every page |
+| `local/custompage:viewconfirmations` | Manager role (and site admins) | See and export the Read confirmations report (give it to compliance staff or an auditor's account) |
 
 ## Notes
 
@@ -84,7 +91,7 @@ Resources in a hub follow the hub's choice. A single page can use the same choic
 
 ## Privacy
 
-The plugin stores who created and last changed each page and audience. Users can request export or deletion through Moodle's privacy tools.
+The plugin stores who created, changed and owns each page and audience, people chosen by name in an audience, "Was this page helpful?" answers and read confirmations. Users can request export or deletion through Moodle's privacy tools. Read confirmations stay when a page is deleted (they are the audit trail) and are removed by a privacy deletion.
 
 ## Pricing
 

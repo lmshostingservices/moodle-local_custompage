@@ -21,7 +21,7 @@
 
     Example context (json):
     {
-        "hasitems": true, "createhuburl": "#", "prompturl": "#", "homeurl": "#", "settingsurl": "#",
+        "hasitems": true, "createhuburl": "#", "prompturl": "#", "homeurl": "#", "settingsurl": "#", "confirmationsurl": "#",
         "items": [
             {"id": 1, "name": "Trainer Resources", "url": "#", "issection": true, "inmenu": true,
              "audience": "Role: Trainer", "canmoveup": false, "canmovedown": false, "haschildren": true, "childcount": 1,
@@ -44,6 +44,9 @@
             {{#str}}downloadprompt, local_custompage{{/str}}
         </a>
         <a class="btn btn-outline-secondary mr-2 me-2 mb-2" href="{{homeurl}}">{{#str}}viewintranethome, local_custompage{{/str}}</a>
+        {{#confirmationsurl}}
+            <a class="btn btn-outline-secondary mr-2 me-2 mb-2" href="{{confirmationsurl}}">{{#str}}ackr_title, local_custompage{{/str}}</a>
+        {{/confirmationsurl}}
         {{#settingsurl}}
             <a class="btn btn-outline-secondary mb-2" href="{{settingsurl}}">{{#str}}intranetsettings, local_custompage{{/str}}</a>
         {{/settingsurl}}

@@ -53,4 +53,11 @@ $functions = [
         'ajax' => true,
         'loginrequired' => true,
     ],
+    'local_custompage_ack_confirm' => [
+        'classname' => 'local_custompage\\external\\ack\\confirm',
+        'description' => 'Record that the current user has read a custom page',
+        'type' => 'write',
+        'ajax' => true,
+        'loginrequired' => true,
+    ],
 ];

@@ -105,6 +105,9 @@ class hub_resource extends \moodleform {
         page::add_ownership_fields($mform);
 
         $editing = !empty($this->_customdata['editing']);
+        page::add_confirmation_fields($mform, 'page', $editing, !empty($this->_customdata['hubrequires']));
+        \local_custompage\local\helpers\standards::add_form_fields($this, $mform, (int) ($this->_customdata['standards'] ?? 0));
+
         $this->add_action_buttons(
             true,
             $editing ? get_string('savechanges') : get_string('addresource', 'local_custompage')

@@ -98,6 +98,7 @@ class hub {
         return new page_model((int) $hub->get('id'));
     }
 
+
     /**
      * Step 2: add or update a resource in a hub. Resources use the hub's audience.
      *
@@ -108,6 +109,7 @@ class hub {
      */
     public static function save_resource(page_model $hub, stdClass $data, ?page_model $resource): page_model {
         global $DB;
+        $existed = (bool) $resource;
         $transaction = $DB->start_delegated_transaction();
         $fields = [
             'name' => trim((string) $data->name),
@@ -164,6 +166,8 @@ class hub {
             page_form::card_image_options()
         );
         card_image::shrink((int) $context->id);
+        standards::save_from_form((int) $resource->get('id'), $data);
+        acknowledge::after_save($resource, $data, $existed);
         $transaction->allow_commit();
         return $resource;
     }

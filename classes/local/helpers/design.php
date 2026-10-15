@@ -34,6 +34,9 @@ class design {
     private const REMOVE = ['script', 'style', 'link', 'meta', 'base', 'title', 'noscript', 'object', 'embed', 'applet', 'frame',
         'frameset', 'set', 'animate', 'animatetransform', 'animatemotion', 'handler', 'listener'];
 
+    /** @var string[] Attributes holding an address (or, for SVG animation, a value that can become one). */
+    private const URL_ATTRIBUTES = ['href', 'src', 'action', 'xlink:href', 'data', 'poster', 'to', 'from', 'values', 'by'];
+
     /**
      * CSS class that wraps a page's content and scopes its design CSS.
      *
@@ -192,7 +195,7 @@ class design {
                 $value = strtolower(preg_replace('~[\s\x00-\x1f]+~', '', (string) $attribute->nodeValue));
                 if (
                     str_starts_with($name, 'on') || $name === 'srcdoc' || $name === 'formaction'
-                        || (in_array($name, ['href', 'src', 'action', 'xlink:href', 'data', 'poster', 'to', 'from', 'values', 'by'], true)
+                        || (in_array($name, self::URL_ATTRIBUTES, true)
                             && (str_starts_with($value, 'javascript:') || str_starts_with($value, 'vbscript:')
                                 || (str_starts_with($value, 'data:') && !str_starts_with($value, 'data:image/'))))
                 ) {

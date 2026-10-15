@@ -154,6 +154,14 @@ class page extends persistent {
                 'null' => NULL_ALLOWED,
                 'default' => null,
             ],
+            'requireack' => [
+                'type' => PARAM_BOOL,
+                'default' => 0,
+            ],
+            'ackversion' => [
+                'type' => PARAM_INT,
+                'default' => 1,
+            ],
             'designcsscompiled' => [
                 'type' => PARAM_RAW, // pipeline-ignore: PARAM_RAW — compiled CSS printed inside a style tag.
                 'null' => NULL_ALLOWED,

@@ -34,4 +34,13 @@ $capabilities = [
             'manager' => CAP_ALLOW,
         ],
     ],
+    // See the read confirmations report and export it (for example for compliance staff or an auditor's account).
+    'local/custompage:viewconfirmations' => [
+        'captype' => 'read',
+        'riskbitmask' => RISK_PERSONAL,
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+        ],
+    ],
 ];

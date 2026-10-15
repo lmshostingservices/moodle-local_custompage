@@ -172,5 +172,45 @@ function xmldb_local_custompage_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026101800, 'local', 'custompage');
     }
 
+    if ($oldversion < 2026101900) {
+        // 2.3: "I have read this" confirmations.
+        $table = new xmldb_table('local_custompages');
+        $field = new xmldb_field('requireack', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'reviewby');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $field = new xmldb_field('ackversion', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '1', 'requireack');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $table = new xmldb_table('local_custompage_ack');
+        if (!$dbman->table_exists($table)) {
+            $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('pageid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('version', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '1');
+            $table->add_field('pagename', XMLDB_TYPE_CHAR, '255', null, null, null, null);
+            $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_key('pageid', XMLDB_KEY_FOREIGN, ['pageid'], 'local_custompages', ['id']);
+            $table->add_key('userid', XMLDB_KEY_FOREIGN, ['userid'], 'user', ['id']);
+            $table->add_index('pageuserversion', XMLDB_INDEX_UNIQUE, ['pageid', 'userid', 'version']);
+            $dbman->create_table($table);
+        }
+        $table = new xmldb_table('local_custompage_standard');
+        if (!$dbman->table_exists($table)) {
+            $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('pageid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('framework', XMLDB_TYPE_CHAR, '255', null, null, null, null);
+            $table->add_field('code', XMLDB_TYPE_CHAR, '100', null, null, null, null);
+            $table->add_field('name', XMLDB_TYPE_CHAR, '255', null, null, null, null);
+            $table->add_field('sortorder', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_key('pageid', XMLDB_KEY_FOREIGN, ['pageid'], 'local_custompages', ['id']);
+            $dbman->create_table($table);
+        }
+        upgrade_plugin_savepoint(true, 2026101900, 'local', 'custompage');
+    }
+
     return true;
 }

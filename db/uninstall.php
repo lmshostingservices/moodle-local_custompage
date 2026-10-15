@@ -44,6 +44,8 @@ function xmldb_local_custompage_uninstall(): bool {
         $custompage->delete();
     }
     $DB->delete_records('local_custompage_feedback');
+    $DB->delete_records('local_custompage_ack');
+    $DB->delete_records('local_custompage_standard');
 
     return true;
 }

@@ -30,6 +30,8 @@
         "updated": "3 days ago", "updatediso": "2026-10-12", "updatedfull": "12 October 2026", "minutes": 6,
         "owner": "Jamie Smith", "overdue": false, "reviewdate": "",
         "body": "<p>Page text</p>", "blocks": "",
+        "hasstandards": true, "standards": [{"framework": "RTO Standards 2025", "code": "1.11", "name": "Student management"}],
+        "ack": {"pageid": 3, "isnone": true, "isoutdated": false, "iscurrent": false, "confirmedtext": "", "outdatedtext": ""},
         "feedback": {"pageid": 3, "answered": false, "helpful": false, "comment": ""},
         "haspager": true, "prev": {"name": "Induction", "url": "#"}, "next": {"name": "Hub overview", "url": "#", "isoverview": true}
     }
@@ -54,7 +56,7 @@
                         <ol class="lcp-spine" id="{{uniqid}}-spine">
                             {{#items}}
                                 <li class="lcp-spine-item{{#current}} is-current{{/current}}" data-filter-text="{{filtertext}}">
-                                    <a href="{{url}}"{{#current}} aria-current="page"{{/current}}>{{{name}}}</a>
+                                    <a href="{{url}}"{{#current}} aria-current="page"{{/current}}>{{{name}}}{{#confirmed}}<span class="lcp-spine-ack is-done" title="{{#str}}ack_state_current, local_custompage{{/str}}">{{#pix}}i/checked, core, {{#str}}ack_state_current, local_custompage{{/str}}{{/pix}}</span>{{/confirmed}}{{#toconfirm}}<span class="lcp-spine-ack" title="{{#str}}ack_toconfirm, local_custompage{{/str}}"><span class="sr-only visually-hidden">{{#str}}ack_toconfirm, local_custompage{{/str}}</span></span>{{/toconfirm}}</a>
                                 </li>
                             {{/items}}
                         </ol>
@@ -73,6 +75,11 @@
                     {{#owner}}<li><span class="lcp-meta-label">{{#str}}owner, local_custompage{{/str}}</span> {{owner}}</li>{{/owner}}
                     {{#overdue}}<li class="lcp-chip lcp-chip-warn">{{#str}}reviewoverdue, local_custompage, {{reviewdate}}{{/str}}</li>{{/overdue}}
                 </ul>
+                {{#hasstandards}}
+                    <ul class="lcp-standards" aria-label="{{#str}}standards, local_custompage{{/str}}">
+                        {{#standards}}<li class="lcp-standard"><span class="lcp-standard-fw">{{framework}}</span> {{#code}}<strong>{{code}}</strong> {{/code}}{{name}}</li>{{/standards}}
+                    </ul>
+                {{/hasstandards}}
             </header>
             <nav class="lcp-jump" data-region="lcp-jump" aria-labelledby="{{uniqid}}-jump" hidden>
                 <span class="lcp-jump-title" id="{{uniqid}}-jump">{{#str}}onthispage, local_custompage{{/str}}</span>
@@ -80,6 +87,7 @@
             </nav>
             <div class="lcp-body" data-region="lcp-body">{{{body}}}</div>
             {{{blocks}}}
+            {{#ack}}{{> local_custompage/ack }}{{/ack}}
             {{#feedback}}{{> local_custompage/feedback }}{{/feedback}}
             {{#haspager}}
                 <nav class="lcp-pager" aria-label="{{#str}}pagerlabel, local_custompage{{/str}}">

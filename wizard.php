@@ -68,6 +68,7 @@ if ($step === 1) {
             'users' => $users,
             'ownerid' => $hub->get('ownerid'),
             'reviewby' => $hub->get('reviewby'),
+            'requireack' => $hub->get('requireack'),
         ]);
     } else {
         $form->set_data(['ownerid' => $USER->id]);
@@ -87,7 +88,10 @@ if ($step === 1) {
     $form = new hub_resource(
         $self(2, ['resource' => $resource ? $resource->get('id') : 0]),
         ['context' => $context, 'editing' => (bool) $resource,
-            'hasdesign' => $resource && trim((string) $resource->get('designcss')) !== '']
+            'hasdesign' => $resource && trim((string) $resource->get('designcss')) !== '',
+            'hubrequires' => (bool) $hub->get('requireack'),
+            'standards' => $resource
+                ? count(\local_custompage\local\helpers\standards::get_for_page((int) $resource->get('id'))) : 0]
     );
     $defaults = (object) ['id' => $hub->get('id'), 'step' => 2, 'resource' => $resource ? $resource->get('id') : 0,
         'content' => '', 'contentformat' => FORMAT_HTML, 'ownerid' => $USER->id];
@@ -98,6 +102,11 @@ if ($step === 1) {
         $defaults->contentformat = (int) $resource->get('contentformat');
         $defaults->ownerid = $resource->get('ownerid');
         $defaults->reviewby = $resource->get('reviewby');
+        $defaults->requireack = $resource->get('requireack');
+        $defaults = (object) array_merge(
+            (array) $defaults,
+            \local_custompage\local\helpers\standards::form_data((int) $resource->get('id'))
+        );
     }
     $defaults = file_prepare_standard_editor(
         $defaults,

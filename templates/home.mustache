@@ -34,6 +34,12 @@
         <h1 class="lcp-title">{{title}}</h1>
         {{#intro}}<div class="lcp-lead lcp-home-intro">{{{intro}}}</div>{{/intro}}
     </header>
+    {{#hastodo}}
+        <section class="lcp-todo" aria-labelledby="{{uniqid}}-todo">
+            <h2 id="{{uniqid}}-todo">{{#str}}ack_home_title, local_custompage{{/str}}</h2>
+            <ul>{{#todo}}<li><a href="{{url}}">{{{name}}}</a>{{#hub}} <span class="text-muted">· {{{hub}}}</span>{{/hub}}</li>{{/todo}}</ul>
+        </section>
+    {{/hastodo}}
     {{#isempty}}
         <div class="lcp-home-empty">
             {{#canmanage}}<p>{{#str}}home_empty_manager, local_custompage{{/str}}</p>

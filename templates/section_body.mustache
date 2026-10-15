@@ -75,6 +75,8 @@
                         <div class="card-body d-flex flex-column">
                             {{#isnew}}<span class="lcp-badge lcp-badge-new">{{#str}}badge_new, local_custompage{{/str}}</span>{{/isnew}}
                             {{#isupdated}}<span class="lcp-badge lcp-badge-updated">{{#str}}badge_updated, local_custompage{{/str}}</span>{{/isupdated}}
+                            {{#toconfirm}}<span class="lcp-badge lcp-badge-ack">{{#str}}ack_toconfirm, local_custompage{{/str}}</span>{{/toconfirm}}
+                            {{#confirmed}}<span class="lcp-badge lcp-badge-acked">{{#pix}}i/checked, core{{/pix}}{{#str}}ack_state_current, local_custompage{{/str}}</span>{{/confirmed}}
                             <h2 class="local-custompage-card-title h5">{{{name}}}</h2>
                             {{#summary}}<p class="local-custompage-card-summary text-muted mb-3">{{{summary}}}</p>{{/summary}}
                             <span class="lcp-cardmeta mt-auto">

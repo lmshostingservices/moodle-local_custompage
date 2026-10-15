@@ -34,6 +34,12 @@ $managepage = new admin_externalpage(
     'local/custompage:manage'
 );
 $ADMIN->add('local_custompage_category', $managepage);
+$ADMIN->add('local_custompage_category', new admin_externalpage(
+    'local_custompage_confirmations',
+    new lang_string('ackr_title', 'local_custompage'),
+    new moodle_url('/local/custompage/confirmations.php'),
+    'local/custompage:viewconfirmations'
+));
 
 if ($hassiteconfig) {
     $settings = new admin_settingpage('local_custompage', new lang_string('intranetsettings', 'local_custompage'));

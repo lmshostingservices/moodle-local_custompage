@@ -22,7 +22,7 @@
     Example context (json):
     {"id": 2, "name": "Marking guide", "url": "#", "issection": false, "inmenu": false,
      "audience": "Same as its hub", "owner": "Jamie Smith", "overdue": false, "reviewdate": "",
-     "feedback": "", "feedbackurl": null, "canmoveup": true, "canmovedown": false, "childcount": 0,
+     "feedback": "", "feedbackurl": null, "acktext": "", "ackurl": null, "ackhub": false, "canmoveup": true, "canmovedown": false, "childcount": 0,
      "editurl": null, "addurl": null}
 }}
 <tr data-page-id="{{id}}" class="{{#issection}}local-custompage-section-row{{/issection}}{{^issection}}local-custompage-page-row{{/issection}}">
@@ -41,6 +41,8 @@
         {{#overdue}}<div><span class="lcp-chip lcp-chip-warn">{{#str}}reviewoverdue, local_custompage, {{reviewdate}}{{/str}}</span></div>{{/overdue}}
         {{^overdue}}{{#reviewdate}}<div class="text-muted">{{#str}}reviewon, local_custompage, {{reviewdate}}{{/str}}</div>{{/reviewdate}}{{/overdue}}
         {{#feedbackurl}}<div><a href="{{feedbackurl}}">{{feedback}}</a></div>{{/feedbackurl}}
+        {{#ackurl}}<div><a href="{{ackurl}}">{{acktext}}</a></div>{{/ackurl}}
+        {{#ackhub}}<div class="text-muted">{{#str}}ack_manage_hub, local_custompage{{/str}}</div>{{/ackhub}}
     </td>
     <td>{{#inmenu}}{{#pix}}i/checked, core, {{#str}}yes{{/str}}{{/pix}}{{/inmenu}}</td>
     <td class="text-right text-end text-nowrap">

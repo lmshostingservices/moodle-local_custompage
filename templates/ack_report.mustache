@@ -1,0 +1,176 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_custompage/ack_report
+
+    Read confirmations report: filters, exports, totals per document and every person against every document.
+
+    Example context (json):
+    {
+        "actionurl": "#", "ishistory": false, "statusurl": "#", "historyurl": "#", "resetaction": "#", "view": "",
+        "selects": [{"label": "Document", "name": "doc", "options": [{"value": 0, "label": "All documents", "selected": true}]}],
+        "statusselect": {"label": "Status", "name": "status", "options": [{"value": "", "label": "Any status", "selected": true}]},
+        "sortselect": {"label": "Order", "name": "sort", "options": [{"value": "document", "label": "By document", "selected": true}]},
+        "search": "", "filterlabels": "", "exports": [{"url": "#", "label": "CSV"}],
+        "hassummary": true, "summary": [{"pageid": 3, "name": "Student behaviour", "hub": "Trainer procedures", "url": "#",
+            "notconfirmedurl": "#", "standards": "RTO Standards 2025 1.11 Student management", "version": 1, "total": 4,
+            "current": 3, "outdated": 0, "none": 1, "percent": 75}],
+        "total": 4, "current": 3, "outdated": 0, "none": 1, "percent": 75, "count": 4,
+        "hasrows": true, "rows": [{"name": "Sam Lee", "profileurl": "#", "email": "sam@example.com", "department": "",
+            "roles": "Teacher", "document": "Student behaviour", "docurl": "#", "hub": "Trainer procedures",
+            "standards": "RTO Standards 2025 1.11 Student management", "version": 1, "state": "current",
+            "statelabel": "Confirmed", "current": true, "confirmed": "15/10/26, 10:32"}],
+        "nodocuments": false, "manageurl": "#", "canmanage": true
+    }
+}}
+<div class="lcp-report">
+    <div class="lcp-report-head">
+        <div>
+            <h2 class="lcp-report-title">{{#ishistory}}{{#str}}ackr_historytitle, local_custompage{{/str}}{{/ishistory}}{{^ishistory}}{{#str}}ackr_title, local_custompage{{/str}}{{/ishistory}}</h2>
+            <p class="lcp-report-intro">{{#str}}ackr_intro, local_custompage{{/str}}</p>
+        </div>
+        <div class="lcp-report-exports" role="group" aria-label="{{#str}}ackr_export, local_custompage{{/str}}">
+            <span class="lcp-report-exports-label">{{#str}}ackr_export, local_custompage{{/str}}</span>
+            {{#exports}}<a class="btn btn-outline-secondary btn-sm" href="{{url}}">{{label}}</a>{{/exports}}
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs lcp-report-tabs">
+        <li class="nav-item"><a class="nav-link{{^ishistory}} active{{/ishistory}}" href="{{statusurl}}"{{^ishistory}} aria-current="page"{{/ishistory}}>{{#str}}ackr_view_status, local_custompage{{/str}}</a></li>
+        <li class="nav-item"><a class="nav-link{{#ishistory}} active{{/ishistory}}" href="{{historyurl}}"{{#ishistory}} aria-current="page"{{/ishistory}}>{{#str}}ackr_view_history, local_custompage{{/str}}</a></li>
+    </ul>
+
+    {{#nodocuments}}
+        <div class="alert alert-info">{{#str}}ackr_nodocuments, local_custompage{{/str}}{{#canmanage}} <a href="{{manageurl}}">{{#str}}managecustompages, local_custompage{{/str}}</a>{{/canmanage}}</div>
+    {{/nodocuments}}
+
+    <form class="lcp-report-filters" method="get" action="{{actionurl}}">
+        {{#view}}<input type="hidden" name="view" value="{{view}}">{{/view}}
+        {{#selects}}
+            <label class="lcp-report-field">
+                <span>{{label}}</span>
+                <select name="{{name}}" class="custom-select form-select">
+                    {{#options}}<option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>{{/options}}
+                </select>
+            </label>
+        {{/selects}}
+        {{#statusselect}}
+            <label class="lcp-report-field">
+                <span>{{label}}</span>
+                <select name="{{name}}" class="custom-select form-select">
+                    {{#options}}<option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>{{/options}}
+                </select>
+            </label>
+        {{/statusselect}}
+        <label class="lcp-report-field">
+            <span>{{#str}}ackr_search, local_custompage{{/str}}</span>
+            <input type="search" name="q" value="{{search}}" class="form-control" placeholder="{{#str}}ackr_search_placeholder, local_custompage{{/str}}">
+        </label>
+        {{#sortselect}}
+            <label class="lcp-report-field">
+                <span>{{label}}</span>
+                <select name="{{name}}" class="custom-select form-select">
+                    {{#options}}<option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>{{/options}}
+                </select>
+            </label>
+        {{/sortselect}}
+        <div class="lcp-report-actions">
+            <button type="submit" class="btn btn-primary">{{#str}}ackr_apply, local_custompage{{/str}}</button>
+            <a class="btn btn-link" href="{{resetaction}}">{{#str}}ackr_reset, local_custompage{{/str}}</a>
+        </div>
+    </form>
+
+    {{^ishistory}}
+        <div class="lcp-report-kpis">
+            <div class="lcp-kpi"><span class="lcp-kpi-value">{{percent}}%</span><span class="lcp-kpi-label">{{#str}}ackr_kpi_percent, local_custompage{{/str}}</span>
+                <span class="lcp-progress" aria-hidden="true"><span style="width: {{percent}}%"></span></span></div>
+            <div class="lcp-kpi is-ok"><span class="lcp-kpi-value">{{current}}</span><span class="lcp-kpi-label">{{#str}}ack_state_current, local_custompage{{/str}}</span></div>
+            <div class="lcp-kpi is-warn"><span class="lcp-kpi-value">{{outdated}}</span><span class="lcp-kpi-label">{{#str}}ack_state_outdated, local_custompage{{/str}}</span></div>
+            <div class="lcp-kpi is-bad"><span class="lcp-kpi-value">{{none}}</span><span class="lcp-kpi-label">{{#str}}ack_state_none, local_custompage{{/str}}</span></div>
+        </div>
+        {{#hassummary}}
+            <h3 class="lcp-report-subtitle">{{#str}}ackr_summary, local_custompage{{/str}}</h3>
+            <div class="table-responsive">
+                <table class="table generaltable lcp-report-table">
+                    <thead><tr>
+                        <th scope="col">{{#str}}ackr_document, local_custompage{{/str}}</th>
+                        <th scope="col">{{#str}}standards, local_custompage{{/str}}</th>
+                        <th scope="col" class="text-center">{{#str}}ackr_version, local_custompage{{/str}}</th>
+                        <th scope="col">{{#str}}ackr_progress, local_custompage{{/str}}</th>
+                        <th scope="col" class="text-right text-end">{{#str}}ack_state_none, local_custompage{{/str}}</th>
+                    </tr></thead>
+                    <tbody>
+                        {{#summary}}
+                            <tr>
+                                <td><a href="{{url}}">{{name}}</a>{{#hub}}<div class="small text-muted">{{hub}}</div>{{/hub}}</td>
+                                <td class="small">{{standards}}</td>
+                                <td class="text-center">{{version}}</td>
+                                <td class="lcp-report-progresscell">
+                                    <span class="lcp-progress" aria-hidden="true"><span style="width: {{percent}}%"></span></span>
+                                    <span class="small">{{#str}}ackr_progress_text, local_custompage, {"current": {{current}}, "total": {{total}}, "percent": {{percent}} }{{/str}}</span>
+                                </td>
+                                <td class="text-right text-end">{{#none}}<a href="{{notconfirmedurl}}">{{none}}</a>{{/none}}{{^none}}0{{/none}}</td>
+                            </tr>
+                        {{/summary}}
+                    </tbody>
+                </table>
+            </div>
+        {{/hassummary}}
+    {{/ishistory}}
+
+    <h3 class="lcp-report-subtitle">{{#str}}ackr_detail, local_custompage{{/str}} <span class="badge badge-secondary text-bg-secondary">{{count}}</span></h3>
+    {{#filterlabels}}<p class="small text-muted">{{#str}}ackr_filters, local_custompage{{/str}}: {{filterlabels}}</p>{{/filterlabels}}
+    {{#hasrows}}
+        <div class="table-responsive">
+            <table class="table generaltable lcp-report-table">
+                <thead><tr>
+                    {{#ishistory}}<th scope="col">{{#str}}ackr_confirmedon, local_custompage{{/str}}</th>{{/ishistory}}
+                    <th scope="col">{{#str}}ackr_staff, local_custompage{{/str}}</th>
+                    <th scope="col">{{#str}}ackr_roles, local_custompage{{/str}}</th>
+                    <th scope="col">{{#str}}ackr_document, local_custompage{{/str}}</th>
+                    <th scope="col">{{#str}}standards, local_custompage{{/str}}</th>
+                    <th scope="col" class="text-center">{{#str}}ackr_version, local_custompage{{/str}}</th>
+                    {{^ishistory}}
+                        <th scope="col">{{#str}}ackr_status, local_custompage{{/str}}</th>
+                        <th scope="col">{{#str}}ackr_confirmedon, local_custompage{{/str}}</th>
+                    {{/ishistory}}
+                    {{#ishistory}}<th scope="col">{{#str}}ackr_stillcurrent, local_custompage{{/str}}</th>{{/ishistory}}
+                </tr></thead>
+                <tbody>
+                    {{#rows}}
+                        <tr>
+                            {{#ishistory}}<td class="text-nowrap">{{confirmed}}</td>{{/ishistory}}
+                            <td><a href="{{profileurl}}">{{name}}</a><div class="small text-muted">{{email}}{{#department}} · {{department}}{{/department}}</div></td>
+                            <td class="small">{{roles}}</td>
+                            <td><a href="{{docurl}}">{{document}}</a>{{#hub}}<div class="small text-muted">{{hub}}</div>{{/hub}}</td>
+                            <td class="small">{{standards}}</td>
+                            <td class="text-center">{{version}}</td>
+                            {{^ishistory}}
+                                <td><span class="lcp-state lcp-state-{{state}}">{{statelabel}}</span></td>
+                                <td class="text-nowrap">{{confirmed}}</td>
+                            {{/ishistory}}
+                            {{#ishistory}}<td>{{#current}}{{#str}}yes{{/str}}{{/current}}{{^current}}{{#str}}ack_state_outdated, local_custompage{{/str}}{{/current}}</td>{{/ishistory}}
+                        </tr>
+                    {{/rows}}
+                </tbody>
+            </table>
+        </div>
+    {{/hasrows}}
+    {{^hasrows}}
+        <div class="alert alert-info">{{#str}}ackr_norows, local_custompage{{/str}}</div>
+    {{/hasrows}}
+</div>

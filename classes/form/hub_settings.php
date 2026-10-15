@@ -84,10 +84,7 @@ class hub_settings extends \moodleform {
             'ajax' => 'core_user/form_user_selector',
             'multiple' => true,
             'noselectionstring' => get_string('none'),
-            'valuehtmlcallback' => static function ($userid) {
-                $user = \core_user::get_user($userid);
-                return $user ? fullname($user) : false;
-            },
+            'valuehtmlcallback' => [\local_custompage\form\page::class, 'owner_label'],
         ]);
         $mform->hideIf('users', 'audience', 'neq', 'people');
 
@@ -104,6 +101,7 @@ class hub_settings extends \moodleform {
         $mform->hideIf('title', 'showinprimarynav', 'notchecked');
 
         page::add_ownership_fields($mform);
+        page::add_confirmation_fields($mform, 'hub', false);
 
         $this->add_action_buttons(true, get_string('savenext', 'local_custompage'));
     }

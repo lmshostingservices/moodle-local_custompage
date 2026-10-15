@@ -29,6 +29,7 @@ use core_privacy\local\request\transform;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use local_custompage\local\models\audience;
+use local_custompage\local\helpers\acknowledge;
 use local_custompage\local\helpers\feedback;
 use local_custompage\local\models\page;
 
@@ -67,6 +68,13 @@ class provider implements
             'timecreated' => 'privacy:metadata:feedback:timecreated',
             'timemodified' => 'privacy:metadata:feedback:timemodified',
         ], 'privacy:metadata:feedback');
+
+        $collection->add_database_table(acknowledge::TABLE, [
+            'userid' => 'privacy:metadata:ack:userid',
+            'version' => 'privacy:metadata:ack:version',
+            'pagename' => 'privacy:metadata:ack:pagename',
+            'timecreated' => 'privacy:metadata:ack:timecreated',
+        ], 'privacy:metadata:ack');
 
         $collection->add_database_table(audience::TABLE, [
             'classname' => 'privacy:metadata:audience:classname',
@@ -122,9 +130,23 @@ class provider implements
                       FROM {' . feedback::TABLE . '} f
                      WHERE f.userid = ?
                     )
+                 OR p.id IN (
+                    SELECT k.pageid
+                      FROM {' . acknowledge::TABLE . '} k
+                     WHERE k.userid = ?
+                    )
                    )';
 
-        $contextlist->add_from_sql($sql, array_fill(0, 6, $userid));
+        $contextlist->add_from_sql($sql, array_fill(0, 7, $userid));
+
+        // Confirmations of pages deleted since (kept as audit history) belong to the site.
+        global $DB;
+        if (
+            $DB->record_exists_sql('SELECT 1 FROM {' . acknowledge::TABLE . '} k
+                LEFT JOIN {' . page::TABLE . '} p ON p.id = k.pageid WHERE k.userid = ? AND p.id IS NULL', [$userid])
+        ) {
+            $contextlist->add_system_context();
+        }
 
         // Pages whose audience names the user.
         if ($pageids = array_keys(self::chosen_in_audiences($userid))) {
@@ -215,8 +237,19 @@ class provider implements
         $userlist->add_from_sql('usercreated', $sql, $params);
         $userlist->add_from_sql('usermodified', $sql, $params);
 
+        // People who confirmed reading the page.
+        $sql = 'SELECT k.userid
+                  FROM {' . acknowledge::TABLE . '} k
+                  JOIN {' . page::TABLE . '} p ON p.id = k.pageid
+                 WHERE ' . $select;
+        $userlist->add_from_sql('userid', $sql, $params);
+
         // People named in the page's audience.
         $context = $userlist->get_context();
+        if ($context->contextlevel == CONTEXT_SYSTEM) {
+            $userlist->add_from_sql('userid', 'SELECT k.userid FROM {' . acknowledge::TABLE . '} k
+                LEFT JOIN {' . page::TABLE . '} p ON p.id = k.pageid WHERE p.id IS NULL', []);
+        }
         if ($context->contextlevel == CONTEXT_CUSTOMPAGE) {
             foreach (self::chosen_in_audiences(null, (int) $context->instanceid) as $records) {
                 foreach ($records as $record) {
@@ -250,8 +283,12 @@ class provider implements
             SELECT f.pageid
               FROM {' . feedback::TABLE . '} f
              WHERE f.userid = ?
+        ) OR id IN (
+            SELECT k.pageid
+              FROM {' . acknowledge::TABLE . '} k
+             WHERE k.userid = ?
         ))';
-        $params = array_fill(0, 6, $user->id);
+        $params = array_fill(0, 7, $user->id);
 
         $chosen = self::chosen_in_audiences((int) $user->id);
         $pages = page::get_records_select($select, $params);
@@ -287,6 +324,9 @@ class provider implements
                 );
             }
 
+            // Their read confirmations (every version).
+            self::export_confirmations($page->get_context(), $subcontext, (int) $user->id, (int) $page->get('id'));
+
             // Their "Was this helpful?" answer.
             global $DB;
             if ($answer = $DB->get_record(feedback::TABLE, ['pageid' => $page->get('id'), 'userid' => $user->id])) {
@@ -296,6 +336,19 @@ class provider implements
                     'timecreated' => transform::datetime($answer->timecreated),
                     'timemodified' => transform::datetime($answer->timemodified),
                 ]);
+            }
+        }
+        // Confirmations of pages deleted since.
+        if (in_array(\core\context\system::instance()->id, array_map('intval', $contextlist->get_contextids()), true)) {
+            global $DB;
+            $orphans = $DB->get_records_sql('SELECT k.* FROM {' . acknowledge::TABLE . '} k
+                LEFT JOIN {' . page::TABLE . '} p ON p.id = k.pageid WHERE k.userid = ? AND p.id IS NULL', [$user->id]);
+            if ($orphans) {
+                writer::with_context(\core\context\system::instance())->export_related_data(
+                    [get_string('custompage', 'local_custompage')],
+                    'confirmations',
+                    (object) ['confirmations' => array_values(array_map([self::class, 'confirmation_data'], $orphans))]
+                );
             }
         }
     }
@@ -308,10 +361,15 @@ class provider implements
     public static function delete_data_for_all_users_in_context(context $context): void {
         global $DB;
         // Pages are site content and stay; people's own answers and ownership are removed.
+        if ($context->contextlevel == CONTEXT_SYSTEM) {
+            $DB->execute('DELETE FROM {' . acknowledge::TABLE . '} WHERE pageid NOT IN (SELECT id FROM {' . page::TABLE . '})');
+            return;
+        }
         if ($context->contextlevel != CONTEXT_CUSTOMPAGE) {
             return;
         }
         $DB->delete_records(feedback::TABLE, ['pageid' => $context->instanceid]);
+        $DB->delete_records(acknowledge::TABLE, ['pageid' => $context->instanceid]);
         $DB->set_field(page::TABLE, 'ownerid', null, ['id' => $context->instanceid]);
         foreach (self::chosen_in_audiences(null, (int) $context->instanceid) as $records) {
             foreach ($records as $record) {
@@ -333,10 +391,16 @@ class provider implements
         global $DB;
         $userid = (int) $contextlist->get_user()->id;
         foreach ($contextlist->get_contexts() as $context) {
+            if ($context->contextlevel == CONTEXT_SYSTEM) {
+                $DB->execute('DELETE FROM {' . acknowledge::TABLE . '} WHERE userid = ? AND pageid NOT IN (SELECT id FROM {'
+                    . page::TABLE . '})', [$userid]);
+                continue;
+            }
             if ($context->contextlevel != CONTEXT_CUSTOMPAGE) {
                 continue;
             }
             $DB->delete_records(feedback::TABLE, ['pageid' => $context->instanceid, 'userid' => $userid]);
+            $DB->delete_records(acknowledge::TABLE, ['pageid' => $context->instanceid, 'userid' => $userid]);
             $DB->set_field(page::TABLE, 'ownerid', null, ['id' => $context->instanceid, 'ownerid' => $userid]);
             self::remove_from_audiences([$userid], (int) $context->instanceid);
         }
@@ -350,14 +414,57 @@ class provider implements
     public static function delete_data_for_users(approved_userlist $userlist): void {
         global $DB;
         $context = $userlist->get_context();
-        if ($context->contextlevel != CONTEXT_CUSTOMPAGE || !$userids = $userlist->get_userids()) {
+        if (!$userids = $userlist->get_userids()) {
             return;
         }
         [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        if ($context->contextlevel == CONTEXT_SYSTEM) {
+            $DB->execute('DELETE FROM {' . acknowledge::TABLE . "} WHERE userid {$insql} AND pageid NOT IN (SELECT id FROM {"
+                . page::TABLE . '})', $params);
+            return;
+        }
+        if ($context->contextlevel != CONTEXT_CUSTOMPAGE) {
+            return;
+        }
         $params['pageid'] = $context->instanceid;
         $DB->delete_records_select(feedback::TABLE, "pageid = :pageid AND userid {$insql}", $params);
+        $DB->delete_records_select(acknowledge::TABLE, "pageid = :pageid AND userid {$insql}", $params);
         $DB->set_field_select(page::TABLE, 'ownerid', null, "id = :pageid AND ownerid {$insql}", $params);
         self::remove_from_audiences($userids, (int) $context->instanceid);
+    }
+
+    /**
+     * A confirmation as export data.
+     *
+     * @param stdClass $record
+     * @return stdClass
+     */
+    protected static function confirmation_data(stdClass $record): stdClass {
+        return (object) [
+            'page' => format_string((string) $record->pagename),
+            'version' => (int) $record->version,
+            'timeconfirmed' => transform::datetime($record->timecreated),
+        ];
+    }
+
+    /**
+     * Export a person's confirmations of a page.
+     *
+     * @param context $context
+     * @param array $subcontext
+     * @param int $userid
+     * @param int $pageid
+     */
+    protected static function export_confirmations(context $context, array $subcontext, int $userid, int $pageid): void {
+        global $DB;
+        $records = $DB->get_records(acknowledge::TABLE, ['pageid' => $pageid, 'userid' => $userid], 'version ASC');
+        if ($records) {
+            writer::with_context($context)->export_related_data(
+                $subcontext,
+                'confirmations',
+                (object) ['confirmations' => array_values(array_map([self::class, 'confirmation_data'], $records))]
+            );
+        }
     }
 
     /**

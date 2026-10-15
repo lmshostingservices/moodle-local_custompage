@@ -18,9 +18,11 @@ declare(strict_types=1);
 
 namespace local_custompage\output;
 
+use local_custompage\local\helpers\acknowledge;
 use local_custompage\local\helpers\audience;
 use local_custompage\local\helpers\feedback;
 use local_custompage\local\helpers\reader;
+use local_custompage\local\helpers\standards;
 use local_custompage\local\models\page;
 use local_custompage\permission;
 use moodle_url;
@@ -168,8 +170,19 @@ class renderer extends plugin_renderer_base {
         }
 
         $intro = (string) get_config('local_custompage', 'homeintro');
+        global $USER;
+        $todo = [];
+        if (isloggedin() && !isguestuser()) {
+            foreach (acknowledge::to_confirm((int) $USER->id) as $record) {
+                $todo[] = ['name' => format_string($record->name),
+                    'hub' => $record->hubname !== null ? format_string($record->hubname) : '',
+                    'url' => (new moodle_url('/local/custompage/view.php', ['id' => $record->id]))->out(false)];
+            }
+        }
         return $this->render_from_template('local_custompage/home', [
             'uniqid' => \html_writer::random_id('lcp'),
+            'todo' => $todo,
+            'hastodo' => !empty($todo),
             'title' => reader::home_label(),
             'intro' => trim(strip_tags($intro)) !== ''
                 ? format_text($intro, FORMAT_HTML, ['context' => \core\context\system::instance()]) : '',
@@ -211,10 +224,31 @@ class renderer extends plugin_renderer_base {
         $answer = $canfeedback ? feedback::get_answer((int) $page->get('id'), (int) $USER->id) : null;
         $overdue = permission::can_manage() && reader::review_overdue($page);
 
+        $ackstates = $canfeedback ? acknowledge::states($siblings ?: [$page], (int) $USER->id) : [];
         $items = [];
         foreach ($siblings as $sibling) {
-            $items[] = $link($sibling) + ['current' => (int) $sibling->get('id') === (int) $page->get('id')];
+            $state = $ackstates[(int) $sibling->get('id')] ?? null;
+            $items[] = $link($sibling) + ['current' => (int) $sibling->get('id') === (int) $page->get('id'),
+                'confirmed' => $state === acknowledge::CURRENT, 'toconfirm' => $state !== null && $state !== acknowledge::CURRENT];
         }
+        $ack = null;
+        if ($canfeedback && acknowledge::is_required($page)) {
+            $latest = acknowledge::latest_for_user([(int) $page->get('id')], (int) $USER->id)[(int) $page->get('id')] ?? null;
+            $state = acknowledge::state($latest, (int) $page->get('ackversion'));
+            $when = $latest ? userdate((int) $latest->timecreated, get_string('strftimedatetime', 'langconfig')) : '';
+            $ack = [
+                'pageid' => (int) $page->get('id'),
+                'iscurrent' => $state === acknowledge::CURRENT,
+                'isoutdated' => $state === acknowledge::OUTDATED,
+                'isnone' => $state === acknowledge::NONE,
+                'confirmedtext' => $latest ? get_string('ack_done', 'local_custompage', $when) : '',
+                'outdatedtext' => $latest ? get_string('ack_outdated', 'local_custompage', $when) : '',
+            ];
+        }
+        $standards = array_map(
+            static fn($s) => ['framework' => $s->framework, 'code' => $s->code, 'name' => $s->name],
+            standards::get_for_page((int) $page->get('id'))
+        );
 
         return $this->render_from_template('local_custompage/reader', [
             'uniqid' => \html_writer::random_id('lcp'),
@@ -229,6 +263,9 @@ class renderer extends plugin_renderer_base {
             'count' => count($siblings),
             'showfilter' => count($siblings) >= 8,
             'items' => $items,
+            'ack' => $ack,
+            'standards' => $standards,
+            'hasstandards' => !empty($standards),
             'updated' => reader::relative_date($updated),
             'updatediso' => userdate($updated, '%Y-%m-%d'),
             'updatedfull' => userdate($updated, get_string('strftimedatefullshort', 'langconfig')),
@@ -257,10 +294,13 @@ class renderer extends plugin_renderer_base {
      * @return string
      */
     public function section_body(page $section): string {
+        global $USER;
         $visible = array_flip(permission::visible_page_ids());
         $cards = [];
         $index = 0;
-        foreach ($section->get_children() as $child) {
+        $children = $section->get_children();
+        $ackstates = isloggedin() && !isguestuser() ? acknowledge::states($children, (int) $USER->id) : [];
+        foreach ($children as $child) {
             if (!isset($visible[(int) $child->get('id')])) {
                 continue;
             }
@@ -281,6 +321,9 @@ class renderer extends plugin_renderer_base {
                 'isupdated' => $badge === 'updated',
                 'files' => reader::files_label($child),
                 'updated' => reader::relative_date($updated),
+                'toconfirm' => isset($ackstates[(int) $child->get('id')])
+                    && $ackstates[(int) $child->get('id')] !== acknowledge::CURRENT,
+                'confirmed' => ($ackstates[(int) $child->get('id')] ?? '') === acknowledge::CURRENT,
             ];
         }
         $intro = $section->get_formatted_content();
@@ -321,7 +364,8 @@ class renderer extends plugin_renderer_base {
         }
 
         $feedback = feedback::summaries();
-        $item = function (\stdClass $record, bool $first, bool $last) use ($feedback): array {
+        $acks = acknowledge::summary(acknowledge::report_rows());
+        $item = function (\stdClass $record, bool $first, bool $last) use ($feedback, $acks): array {
             $page = new page(0, $record);
             $answers = $feedback[(int) $record->id] ?? null;
             $children = [];
@@ -348,6 +392,16 @@ class renderer extends plugin_renderer_base {
                 'reviewdate' => $record->reviewby
                     ? userdate((int) $record->reviewby, get_string('strftimedate', 'langconfig')) : '',
                 'feedback' => $answers ? get_string('feedback_summary', 'local_custompage', $answers) : '',
+                'acktext' => isset($acks[(int) $record->id]) ? get_string(
+                    'ack_manage_summary',
+                    'local_custompage',
+                    ['current' => $acks[(int) $record->id][acknowledge::CURRENT], 'total' => $acks[(int) $record->id]['total']]
+                ) : '',
+                'ackurl' => isset($acks[(int) $record->id]) ? (new moodle_url(
+                    '/local/custompage/confirmations.php',
+                    ['doc' => $record->id]
+                ))->out(false) : null,
+                'ackhub' => $page->is_container() && !empty($record->requireack),
                 'feedbackurl' => $answers ? (new moodle_url('/local/custompage/feedback.php', ['id' => $record->id]))->out(false)
                     : null,
                 'canmoveup' => !$first,
@@ -377,6 +431,8 @@ class renderer extends plugin_renderer_base {
             'settingsurl' => has_capability('moodle/site:config', \core\context\system::instance())
                 ? (new moodle_url('/admin/settings.php', ['section' => 'local_custompage']))->out(false) : null,
             'homeurl' => (new moodle_url('/local/custompage/home.php'))->out(false),
+            'confirmationsurl' => has_capability('local/custompage:viewconfirmations', \core\context\system::instance())
+                ? (new moodle_url('/local/custompage/confirmations.php'))->out(false) : null,
             'items' => $items,
             'hasitems' => !empty($items),
         ]);
