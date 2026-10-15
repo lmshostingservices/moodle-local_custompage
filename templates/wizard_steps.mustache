@@ -1,0 +1,36 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_custompage/wizard_steps
+
+    Step indicator for the resource hub wizard.
+
+    Example context (json):
+    {"steps": [{"number": 1, "label": "Details", "current": false, "done": true, "url": "#"},
+               {"number": 2, "label": "Resources", "current": true, "done": false, "url": null},
+               {"number": 3, "label": "Look", "current": false, "done": false, "url": "#"}]}
+}}
+<ol class="local-custompage-steps list-unstyled d-flex flex-wrap mb-4">
+    {{#steps}}
+        <li class="local-custompage-step{{#current}} is-current{{/current}}{{#done}} is-done{{/done}}"{{#current}} aria-current="step"{{/current}}>
+            {{#url}}<a href="{{url}}">{{/url}}
+                <span class="local-custompage-step-number">{{number}}</span>
+                <span class="local-custompage-step-label">{{label}}</span>
+            {{#url}}</a>{{/url}}
+        </li>
+    {{/steps}}
+</ol>

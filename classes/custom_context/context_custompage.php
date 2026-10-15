@@ -21,7 +21,12 @@ use core\context;
 use moodle_url;
 use stdClass;
 
-require_once $CFG->dirroot . "/local/custompage/lib.php";
+defined('MOODLE_INTERNAL') || die();
+
+// Defines CONTEXT_CUSTOMPAGE. Declare $CFG global: this file may be loaded by the class autoloader inside a function.
+global $CFG;
+require_once($CFG->dirroot . '/local/custompage/lib.php');
+
 /**
  * Custom page context implementation.
  *
@@ -141,7 +146,7 @@ class context_custompage extends context {
     public function get_child_contexts() {
         global $DB;
 
-        if (empty($this->_path) or empty($this->_depth)) {
+        if (empty($this->_path) || empty($this->_depth)) {
             debugging('Can not find child contexts of context ' . $this->_id . ' try rebuilding of context paths');
             return [];
         }
@@ -204,10 +209,12 @@ class context_custompage extends context {
 
         $syscontextid = \SYSCONTEXTID;
 
-        if ($force or $DB->record_exists_select(
+        if (
+            $force || $DB->record_exists_select(
                 'context',
                 "contextlevel = " . \CONTEXT_CUSTOMPAGE . " AND (depth = 0 OR path IS NULL)"
-        )) {
+            )
+        ) {
             if ($force) {
                 $ctxemptyclause = $emptyclause = '';
             } else {

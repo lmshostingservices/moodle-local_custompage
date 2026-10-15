@@ -26,18 +26,14 @@ defined('MOODLE_INTERNAL') || die();
 
 $callbacks = [
     [
-        'hook' => \core\hook\output\before_standard_top_of_body_html_generation::class,
-        'callback' => \local_custompage\hook_callbacks::class . '::before_standard_top_of_body_html_generation',
+        'hook' => \core\hook\navigation\primary_extend::class,
+        'callback' => \local_custompage\hook_callbacks::class . '::primary_extend',
         'priority' => 0,
     ],
+    // Moodle 4.5+ only. On Moodle 4.4 the legacy local_custompage_after_config() callback in lib.php is used.
     [
-        'hook' => \core\hook\after_config::class,
+        'hook' => 'core\\hook\\after_config',
         'callback' => \local_custompage\hook_callbacks::class . '::after_config',
-        'priority' => 0,
-    ],
-    [
-        'hook' => \core\hook\output\before_http_headers::class,
-        'callback' => \local_custompage\hook_callbacks::class . '::before_http_headers_generation',
         'priority' => 0,
     ],
 ];

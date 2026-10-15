@@ -1,0 +1,102 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_custompage/section_body
+
+    A section: intro, then a card for each page in it the visitor can see.
+
+    Example context (json):
+    {
+        "uniqid": "lcp2", "crumbs": [{"name": "Intranet", "url": "#"}, {"name": "Trainer resources", "url": null}],
+        "name": "Trainer resources", "ownbanner": false, "showfilter": false,
+        "scopeclass": "local-custompage-design-2", "designcss": "", "look": "classic", "hashero": false,
+        "heroeyebrow": "", "herotitle": "", "summary": "Resources for trainers", "resourcecount": 1,
+        "id": 3, "intro": "<p>Resources for trainers.</p>", "hasintro": true, "hascards": true, "canmanage": false,
+        "cards": [
+            {"id": 2, "name": "Marking guide", "summary": "How to mark BSBLDR811 assessments.",
+             "url": "#", "imageurl": null, "initial": "M", "accent": 0, "filtertext": "Marking guide",
+             "isnew": true, "isupdated": false, "files": "PDF", "updated": "3 days ago"}
+        ]
+    }
+}}
+{{#designcss}}<style>{{{designcss}}}</style>{{/designcss}}
+<div class="lcp-shell lcp-hub local-custompage-section local-custompage-look-{{look}} lcp-look-{{look}} {{scopeclass}}" id="{{uniqid}}">
+    {{> local_custompage/crumbs }}
+    {{#hashero}}
+        <div class="local-custompage-hero mb-4">
+            <h1 class="local-custompage-hero-eyebrow">{{name}}</h1>
+            <p class="local-custompage-hero-title">{{{herotitle}}}</p>
+            <span class="local-custompage-hero-count">{{#str}}nresources, local_custompage, {{resourcecount}}{{/str}}</span>
+        </div>
+    {{/hashero}}
+    {{^hashero}}
+        <header class="lcp-pagehead">
+            <h1 class="lcp-title{{#ownbanner}} sr-only visually-hidden{{/ownbanner}}">{{name}}</h1>
+            {{#summary}}<p class="lcp-lead">{{{summary}}}</p>{{/summary}}
+        </header>
+    {{/hashero}}
+    {{#hasintro}}
+        <div class="local-custompage-content mb-4">{{{intro}}}</div>
+    {{/hasintro}}
+    {{#hascards}}
+        {{#showfilter}}
+            <div class="lcp-hubsearch">
+                <label class="sr-only visually-hidden" for="{{uniqid}}-filter">{{#str}}searchhub, local_custompage{{/str}}</label>
+                <input type="search" class="lcp-filter form-control" id="{{uniqid}}-filter" autocomplete="off"
+                    placeholder="{{#str}}searchhub, local_custompage{{/str}}" data-lcp-filter="#{{uniqid}}-cards">
+            </div>
+        {{/showfilter}}
+        <ul class="local-custompage-cards-grid list-unstyled" id="{{uniqid}}-cards">
+            {{#cards}}
+                <li class="local-custompage-card-item" data-filter-text="{{filtertext}}">
+                    <a class="local-custompage-card card h-100" href="{{url}}" data-page-id="{{id}}">
+                        {{#imageurl}}
+                            <div class="local-custompage-card-media" style="background-image: url('{{imageurl}}');" aria-hidden="true"></div>
+                        {{/imageurl}}
+                        {{^imageurl}}
+                            <div class="local-custompage-card-media local-custompage-accent-{{accent}}" aria-hidden="true">
+                                <span class="local-custompage-card-initial">{{initial}}</span>
+                            </div>
+                        {{/imageurl}}
+                        <div class="card-body d-flex flex-column">
+                            {{#isnew}}<span class="lcp-badge lcp-badge-new">{{#str}}badge_new, local_custompage{{/str}}</span>{{/isnew}}
+                            {{#isupdated}}<span class="lcp-badge lcp-badge-updated">{{#str}}badge_updated, local_custompage{{/str}}</span>{{/isupdated}}
+                            <h2 class="local-custompage-card-title h5">{{{name}}}</h2>
+                            {{#summary}}<p class="local-custompage-card-summary text-muted mb-3">{{{summary}}}</p>{{/summary}}
+                            <span class="lcp-cardmeta mt-auto">
+                                {{#files}}<span class="lcp-cardmeta-files">{{files}}</span>{{/files}}
+                                <span>{{#str}}updatedwhen, local_custompage, {{updated}}{{/str}}</span>
+                            </span>
+                        </div>
+                    </a>
+                </li>
+            {{/cards}}
+        </ul>
+        <p class="lcp-filter-empty" hidden>{{#str}}nomatchingpages, local_custompage{{/str}}</p>
+    {{/hascards}}
+    {{^hascards}}
+        <div class="alert alert-info">
+            {{#canmanage}}{{#str}}emptysection_manager, local_custompage{{/str}}{{/canmanage}}
+            {{^canmanage}}{{#str}}emptysection, local_custompage{{/str}}{{/canmanage}}
+        </div>
+    {{/hascards}}
+</div>
+{{#js}}
+    require(['local_custompage/reader'], function(reader) {
+        reader.init('#{{uniqid}}');
+    });
+{{/js}}

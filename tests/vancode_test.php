@@ -27,7 +27,6 @@ namespace local_custompage;
 
 use local_custompage\local\helpers\vancode;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Test cases for vancode helper class
@@ -36,6 +35,7 @@ defined('MOODLE_INTERNAL') || die();
  * @category   test
  * @copyright  2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers \local_custompage\local\helpers\vancode
  */
 final class vancode_test extends \advanced_testcase {
     /**

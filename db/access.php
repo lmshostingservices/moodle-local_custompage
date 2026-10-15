@@ -24,35 +24,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once(__DIR__ . '/../lib.php');
-
 $capabilities = [
-  'local/custompage:edit' => [
-    'captype' => 'write',
-    'riskbitmask' => RISK_SPAM | RISK_DATALOSS | RISK_XSS,
-    'contextlevel' => CONTEXT_CUSTOMPAGE,
-    'archetypes' => [
+    // Create, edit, reorder and delete custom pages, and see every page regardless of its audience.
+    'local/custompage:manage' => [
+        'captype' => 'write',
+        'riskbitmask' => RISK_SPAM | RISK_XSS | RISK_DATALOSS,
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+        ],
     ],
-  ],
-  'local/custompage:editall' => [
-    'captype' => 'write',
-    'riskbitmask' => RISK_SPAM | RISK_DATALOSS | RISK_XSS,
-    'contextlevel' => CONTEXT_SYSTEM,
-    'archetypes' => [
-    ],
-  ],
-  'local/custompage:view' => [
-    'captype' => 'read',
-    'riskbitmask' => RISK_PERSONAL,
-    'contextlevel' => CONTEXT_CUSTOMPAGE,
-    'archetypes' => [
-    ],
-  ],
-  'local/custompage:create' => [
-    'captype' => 'write',
-    'riskbitmask' => RISK_SPAM | RISK_DATALOSS | RISK_XSS,
-    'contextlevel' => CONTEXT_SYSTEM,
-    'archetypes' => [
-    ],
-  ],
 ];

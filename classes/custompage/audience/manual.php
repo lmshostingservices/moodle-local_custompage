@@ -18,103 +18,45 @@ declare(strict_types=1);
 
 namespace local_custompage\custompage\audience;
 
-use core\context\system;
-use local_custompage\local\audiences\base;
 use core_reportbuilder\local\helpers\database;
-use core_user;
-use MoodleQuickForm;
+use local_custompage\local\audiences\base;
 
 /**
- * The backend class for Manually added users audience type
+ * Audience: individually chosen users.
  *
  * @package     local_custompage
- * @copyright   2021 David Matamoros <davidmc@moodle.com>
  * @copyright   2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class manual extends base {
     /**
-     * Adds audience's elements to the given mform
+     * Whether any user is chosen.
      *
-     * @param MoodleQuickForm $mform The form to add elements to
+     * @return bool
      */
-    public function get_config_form(MoodleQuickForm $mform): void {
-        // Users selector.
-        $options = [
-            'ajax' => 'core_user/form_user_selector',
-            'multiple' => true,
-            'valuehtmlcallback' => function ($userid) {
-                $user = core_user::get_user($userid);
-                return fullname($user, has_capability('moodle/site:viewfullnames', \core\context\system::instance()));
-            },
-        ];
-
-        $mform->addElement('autocomplete', 'users', get_string('addusers', 'core_reportbuilder'), [], $options);
-        $mform->addRule('users', null, 'required', null, 'client');
+    public function is_configured(): bool {
+        return !empty($this->get_configdata()["users"]);
     }
 
     /**
-     * Helps to build SQL to retrieve users that matches the current report audience
+     * SQL selecting the chosen users.
      *
      * @param string $usertablealias
-     * @return array array of three elements [$join, $where, $params]
+     * @return array
      */
     public function get_sql(string $usertablealias): array {
         global $DB;
-
-        $users = $this->get_configdata()['users'] ?? [];
-        $prefix = database::generate_param_name() . '_';
-        [$insql, $inparams] = $DB->get_in_or_equal($users, SQL_PARAMS_NAMED, $prefix);
-
-        return ['', "{$usertablealias}.id $insql", $inparams];
+        $users = array_map("intval", $this->get_configdata()["users"] ?? []);
+        [$insql, $params] = $DB->get_in_or_equal($users, SQL_PARAMS_NAMED, database::generate_param_name() . "_");
+        return ["", "{$usertablealias}.id {$insql}", $params];
     }
 
     /**
-     * Return user friendly name of this audience type
+     * Name.
      *
      * @return string
      */
     public function get_name(): string {
-        return get_string('manuallyaddedusers', 'core_reportbuilder');
-    }
-
-    /**
-     * Return the description for the audience.
-     *
-     * @return string
-     */
-    public function get_description(): string {
-        global $DB;
-
-        $canviewfullnames = has_capability('moodle/site:viewfullnames', \core\context\system::instance());
-
-        $userslist = [];
-
-        $userids = $this->get_configdata()['users'] ?? [];
-        [$sort] = users_order_by_sql();
-        $users = $DB->get_records_list('user', 'id', $userids, $sort);
-        foreach ($users as $user) {
-            $userslist[] = fullname($user, $canviewfullnames);
-        }
-
-        return $this->format_description_for_multiselect($userslist);
-    }
-
-    /**
-     * If the current user is able to add this audience.
-     *
-     * @return bool
-     */
-    public function user_can_add(): bool {
-        return has_capability('moodle/user:viewalldetails', \core\context\system::instance());
-    }
-
-    /**
-     * If the current user is able to edit this audience.
-     *
-     * @return bool
-     */
-    public function user_can_edit(): bool {
-        return has_capability('moodle/user:viewalldetails', \core\context\system::instance());
+        return get_string("audience_usersname", "local_custompage");
     }
 }

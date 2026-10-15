@@ -67,4 +67,10 @@ class constants {
 
     /** @var int Direction to move page down */
     public const PAGE_DOWN = -1;
+
+    /** @var int Page uses its section's audience. */
+    public const AUDIENCE_INHERIT = 0;
+
+    /** @var int Page (or section) uses its own audiences. */
+    public const AUDIENCE_OWN = 1;
 }

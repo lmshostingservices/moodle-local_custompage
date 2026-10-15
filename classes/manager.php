@@ -145,14 +145,8 @@ class manager {
             }
 
             $breadcrumbtitle = $breadcrumbitem->get_formatted_name();
-            $breadcrumburl = $breadcrumbitem->is_container() ?
-                null :
-                new moodle_url('/local/custompage/view.php', ['id' => $breadcrumbitem->get('id')]);
-
-            $navbarnode = $PAGE->navbar->add($breadcrumbtitle, $breadcrumburl);
-            if ($breadcrumbitem->is_container() && $navbarnode) {
-                $navbarnode->make_inactive();
-            }
+            $breadcrumburl = new moodle_url('/local/custompage/view.php', ['id' => $breadcrumbitem->get('id')]);
+            $PAGE->navbar->add($breadcrumbtitle, $breadcrumburl);
         }
     }
 
@@ -188,11 +182,6 @@ class manager {
      * @return bool True if user can access page
      */
     public static function can_user_access_page(page $page, ?int $userid = null): bool {
-        try {
-            permission::require_can_view_page($page, $userid);
-            return true;
-        } catch (page_access_exception $e) {
-            return false;
-        }
+        return permission::can_view_page($page, $userid);
     }
 }

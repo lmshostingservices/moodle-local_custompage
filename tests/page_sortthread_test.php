@@ -28,7 +28,6 @@ namespace local_custompage;
 use local_custompage\local\models\page;
 use local_custompage\local\helpers\vancode;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Test cases for page sortthread functionality
@@ -37,6 +36,7 @@ defined('MOODLE_INTERNAL') || die();
  * @category   test
  * @copyright  2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers \local_custompage\local\models\page
  */
 final class page_sortthread_test extends \advanced_testcase {
     /**
@@ -287,7 +287,7 @@ final class page_sortthread_test extends \advanced_testcase {
         $this->assertEquals('02', $page2->get('sortthread'));
 
         // Test with special characters in names.
-        $specialname = 'Page with "quotes" & <tags> and émojis 🎉';
+        $specialname = 'Page with "quotes" & ampersands and émojis 🎉';
         $page3 = new page();
         $page3->set('name', $specialname);
         $page3->create();

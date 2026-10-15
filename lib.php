@@ -24,248 +24,60 @@
 
 declare(strict_types=1);
 
-use core\output\inplace_editable;
-use local_custompage\local\helpers\audience as audience_helper;
-use local_custompage\local\models\page as page_persistent;
-use local_custompage\local\services\navigation as navigation_service;
-use local_custompage\local\services\audience_fragment as audience_fragment_service;
-use local_custompage\output\audience_heading_editable;
-use local_custompage\output\page_name_editable;
-use local_custompage\output\page_title_editable;
-
 defined('MOODLE_INTERNAL') || die();
-
 
 if (!defined('CONTEXT_CUSTOMPAGE')) {
     define('CONTEXT_CUSTOMPAGE', 75);
 }
 
 /**
- * Plugin inplace editable implementation.
- *
- * @param string $itemtype The type of item being edited
- * @param int $itemid The ID of the item being edited
- * @param string $newvalue The new value for the item
- * @return inplace_editable|null The inplace editable object or null if not supported
- * @throws moodle_exception If session key is invalid
- * @throws coding_exception If invalid parameters are provided
+ * Legacy after_config callback (Moodle 4.4). On 4.5+ the \core\hook\after_config hook is used instead
+ * and core skips this function because a hook callback is registered.
  */
-function local_custompage_inplace_editable(string $itemtype, int $itemid, string $newvalue): ?inplace_editable {
-    require_sesskey();
-
-    // Validate input parameters.
-    if ($itemid <= 0) {
-        throw new coding_exception('Invalid item ID provided');
-    }
-
-    if (empty($itemtype)) {
-        throw new coding_exception('Item type cannot be empty');
-    }
-
-    switch ($itemtype) {
-        case 'pagename':
-            return page_name_editable::update($itemid, $newvalue);
-        case 'pagetitle':
-            return page_title_editable::update($itemid, $newvalue);
-        case 'audienceheading':
-            return audience_heading_editable::update($itemid, $newvalue);
-        default:
-            return null;
-    }
+function local_custompage_after_config(): void {
+    \local_custompage\hook_callbacks::register_context_level();
 }
 
 /**
- * Return the audience form fragment.
+ * Serve the plugin's files (page body images, documents, card images), applying the page's audience.
  *
- * @param array $params Parameters for the fragment
- * @return string The rendered fragment
+ * @param stdClass $course
+ * @param stdClass|null $cm
+ * @param context $context
+ * @param string $filearea
+ * @param array $args
+ * @param bool $forcedownload
+ * @param array $options
+ * @return bool false if the file is not found or not visible; otherwise the file is sent and the script ends.
  */
-function local_custompage_output_fragment_audience_form(array $params): string {
-    return audience_fragment_service::render($params);
+function local_custompage_pluginfile(
+    $course,
+    $cm,
+    $context,
+    string $filearea,
+    array $args,
+    bool $forcedownload,
+    array $options = []
+): bool {
+    if (!in_array($filearea, ['content', 'documents', 'cardimage'], true) || $context->contextlevel != CONTEXT_CUSTOMPAGE) {
+        return false;
+    }
+
+    $page = \local_custompage\local\models\page::get_record(['id' => $context->instanceid]);
+    if (!$page) {
+        return false;
+    }
+    \local_custompage\permission::require_login_for_page($page);
+    if (!\local_custompage\permission::can_view_page($page)) {
+        return false;
+    }
+
+    $filename = array_pop($args);
+    $filepath = $args ? '/' . implode('/', $args) . '/' : '/';
+    $file = get_file_storage()->get_file($context->id, 'local_custompage', $filearea, 0, $filepath, $filename);
+    if (!$file || $file->is_directory()) {
+        return false;
+    }
+
+    send_stored_file($file, DAYSECS, 0, $forcedownload, $options);
 }
-
-/**
- * Extend site navigation with custom pages.
- *
- * @param global_navigation $nav The global navigation object
- * @return void
- */
-function local_custompage_extend_navigation(global_navigation $nav): void {
-    global $PAGE, $CFG, $USER;
-
-    // Skip for AJAX and CLI scripts.
-    if (AJAX_SCRIPT || CLI_SCRIPT) {
-        return;
-    }
-
-    // Preserve original custom menu items.
-    $CFG->dbunmodifiedcustommenuitems = $CFG->custommenuitems ?? '';
-
-    $userid = local_custompage_get_user_id();
-    if (!$userid) {
-        return;
-    }
-
-    try {
-        $pages = audience_helper::user_pages_list($userid);
-        if (empty($pages)) {
-            return;
-        }
-
-        // Build hierarchical menu structure.
-        $pagehierarchy = build_page_hierarchy($pages);
-
-        // Add pages to menu in hierarchical order.
-        add_bootstrap_hierarchical_menu_items($pagehierarchy);
-
-        // Handle navigation breadcrumb for current page.
-        local_custompage_handle_current_page_breadcrumb($nav);
-    } catch (Exception $e) {
-        debugging('Error extending navigation: ' . $e->getMessage(), DEBUG_DEVELOPER);
-    }
-}
-
-/**
- * Get the current user ID, including guest users.
- *
- * @return int|null User ID or null if no valid user
- */
-function local_custompage_get_user_id(): ?int {
-    global $CFG, $USER;
-
-    if (isloggedin()) {
-        return (int)$USER->id;
-    }
-
-    if (!empty($CFG->guestloginbutton)) {
-        $guest = guest_user();
-        return (int)$guest->id;
-    }
-
-    return null;
-}
-
-/**
- * Handle breadcrumb navigation for current custom page.
- *
- * @param global_navigation $nav The global navigation object
- * @return void
- */
-function local_custompage_handle_current_page_breadcrumb(global_navigation $nav): void {
-    global $PAGE;
-
-    if ($PAGE->context->contextlevel !== CONTEXT_CUSTOMPAGE) {
-        return;
-    }
-
-    try {
-        $currentpageid = $PAGE->context->instanceid;
-        $currentpage = page_persistent::get_record(['id' => $currentpageid]);
-
-        if ($currentpage) {
-            $userid = local_custompage_get_user_id();
-            if ($userid) {
-                $pages = audience_helper::user_pages_list($userid);
-                if (in_array($currentpageid, $pages)) {
-                    add_page_navigation_breadcrumb($nav, $currentpage);
-                }
-            }
-        }
-    } catch (Exception $e) {
-        debugging('Error handling page breadcrumb: ' . $e->getMessage(), DEBUG_DEVELOPER);
-    }
-}
-
-/**
- * Build page hierarchy from flat list.
- *
- * @param array $pageids List of page IDs to build hierarchy from
- * @return array Hierarchical structure of pages
- * @throws coding_exception If navigation service fails
- */
-function build_page_hierarchy(array $pageids): array {
-    return navigation_service::build_page_hierarchy($pageids);
-}
-
-/**
- * Recursively build page tree.
- *
- * @param stdClass $page Current page to process
- * @param array $pagesbyparent Array of pages grouped by parent ID
- * @return array Node structure with current page and its children
- * @throws coding_exception If navigation service fails
- */
-function build_page_tree_recursive(stdClass $page, array $pagesbyparent): array {
-    return navigation_service::build_page_tree_recursive($page, $pagesbyparent);
-}
-
-/**
- * Add hierarchical menu items with proper Bootstrap formatting.
- *
- * @param array $hierarchy Hierarchical structure of pages
- * @param int $level Current nesting level
- * @return void
- * @throws coding_exception If navigation service fails
- */
-function add_bootstrap_hierarchical_menu_items(array $hierarchy, int $level = 0): void {
-    navigation_service::add_bootstrap_hierarchical_menu_items($hierarchy, $level);
-}
-
-/**
- * Add page navigation breadcrumb.
- *
- * @param global_navigation $nav Navigation object to add breadcrumbs to
- * @param page_persistent $currentpage Current page being viewed
- * @return void
- * @throws coding_exception If page hierarchy cannot be built
- * @throws moodle_exception If URL construction fails
- */
-function add_page_navigation_breadcrumb(global_navigation $nav, page_persistent $currentpage): void {
-    $frontpagenode = $nav->find('home', null);
-
-    if (!$frontpagenode) {
-        $frontpagenode = $nav->add(
-            get_string('home'),
-            new moodle_url('/'),
-            navigation_node::TYPE_ROOTNODE,
-            null,
-            'home'
-        );
-        $frontpagenode->force_open();
-    }
-
-    // Get page hierarchy.
-    $breadcrumb = [];
-    $current = $currentpage;
-
-    while ($current) {
-        array_unshift($breadcrumb, $current);
-        try {
-            $parentid = $current->get('parent');
-        } catch (coding_exception $e) {
-            debugging('Error getting parent ID: ' . $e->getMessage(), DEBUG_DEVELOPER);
-            break;
-        }
-        $current = $parentid ? page_persistent::get_record(['id' => $parentid]) : null;
-    }
-
-    // Add breadcrumb nodes.
-    $parentnode = $frontpagenode;
-    foreach ($breadcrumb as $breadcrumbpage) {
-        $pageurl = new moodle_url('/local/custompage/view.php', ['id' => $breadcrumbpage->get('id')]);
-        $pagename = $breadcrumbpage->get_formatted_name();
-
-        $pagenode = $parentnode->add(
-            $pagename,
-            $pageurl,
-            navigation_node::TYPE_CUSTOM,
-            null,
-            'custompage_' . $breadcrumbpage->get('id')
-        );
-        $pagenode->make_active();
-        $parentnode = $pagenode;
-    }
-}
-
-// Note: The legacy local_custompage_before_standard_top_of_body_html() callback has been
-// removed. Menu restoration is now handled by hook_callbacks::before_standard_top_of_body_html_generation().

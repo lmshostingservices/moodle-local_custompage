@@ -72,7 +72,7 @@ class audience_created extends base {
      * @return string
      */
     public static function get_name() {
-        return get_string('audiencecreated', 'core_reportbuilder');
+        return get_string('audiencecreated', 'local_custompage');
     }
 
     /**

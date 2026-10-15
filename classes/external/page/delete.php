@@ -21,7 +21,6 @@ namespace local_custompage\external\page;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
-use local_custompage\factories\page_factory;
 use local_custompage\manager;
 use local_custompage\permission;
 
@@ -49,11 +48,9 @@ class delete extends external_api {
         $pagepersistent = manager::get_page_from_id($pageid);
 
         self::validate_context($pagepersistent->get_context());
-        permission::require_can_edit_page($pagepersistent);
+        permission::require_can_manage();
 
-        $custompage = page_factory::create($pageid);
-
-        return $custompage->delete();
+        return \local_custompage\local\helpers\page::delete_page($pageid);
     }
 
     /**

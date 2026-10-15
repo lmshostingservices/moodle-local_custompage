@@ -1,0 +1,59 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_custompage/hub_resources
+
+    Resources in a hub, shown in wizard step 2.
+
+    Example context (json):
+    {"hasrows": true, "rows": [{"id": 5, "name": "Marking guide", "summary": "How to mark", "files": "1 file",
+      "viewurl": "#", "editurl": "#", "editing": false, "canmoveup": false, "canmovedown": false, "audience": ""}]}
+}}
+<div class="local-custompage-hub-resources">
+    <h3>{{#str}}resourcesinhub, local_custompage{{/str}}</h3>
+    {{#hasrows}}
+        <ul class="list-group mb-3">
+            {{#rows}}
+                <li class="list-group-item d-flex align-items-center flex-wrap{{#editing}} list-group-item-primary{{/editing}}" data-page-id="{{id}}">
+                    <div class="flex-grow-1 mr-3 me-3">
+                        <a class="font-weight-bold fw-bold" href="{{viewurl}}">{{{name}}}</a>
+                        {{#files}}<span class="badge badge-light text-bg-light ml-2 ms-2">{{files}}</span>{{/files}}
+                        {{#audience}}<span class="badge badge-info text-bg-info ml-2 ms-2">{{audience}}</span>{{/audience}}
+                        {{#summary}}<div class="small text-muted">{{{summary}}}</div>{{/summary}}
+                    </div>
+                    <div class="text-nowrap">
+                        <a class="btn btn-sm btn-outline-primary" href="{{editurl}}">{{#str}}edit{{/str}}</a>
+                        <button type="button" class="btn btn-sm btn-link" data-action="local_custompage-move" data-direction="up" data-id="{{id}}" {{^canmoveup}}disabled{{/canmoveup}}
+                            title="{{#str}}moveup{{/str}}">{{#pix}}t/up, core, {{#str}}moveup{{/str}}{{/pix}}</button>
+                        <button type="button" class="btn btn-sm btn-link" data-action="local_custompage-move" data-direction="down" data-id="{{id}}" {{^canmovedown}}disabled{{/canmovedown}}
+                            title="{{#str}}movedown{{/str}}">{{#pix}}t/down, core, {{#str}}movedown{{/str}}{{/pix}}</button>
+                        <button type="button" class="btn btn-sm btn-link text-danger" data-action="local_custompage-delete" data-id="{{id}}" data-issection="0" data-childcount="0"
+                            title="{{#str}}delete{{/str}}">{{#pix}}t/delete, core, {{#str}}delete{{/str}}{{/pix}}</button>
+                    </div>
+                </li>
+            {{/rows}}
+        </ul>
+    {{/hasrows}}
+    {{^hasrows}}
+        <div class="alert alert-info">{{#str}}noresourcesyet, local_custompage{{/str}}</div>
+    {{/hasrows}}
+</div>
+{{#js}}
+    require(['local_custompage/manage'], function(manage) {
+        manage.init();
+    });
+{{/js}}

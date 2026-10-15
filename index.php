@@ -15,53 +15,22 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Main management page for custom pages listing.
+ * Manage custom pages: sections and pages, who can see them, and their order.
  *
  * @package    local_custompage
  * @copyright  2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-declare(strict_types=1);
-
-use local_custompage\permission;
-use core_reportbuilder\system_report_factory;
-use local_custompage\reportbuilder\local\systemreports\pages_list;
 
 require_once(__DIR__ . '/../../config.php');
+require_once($CFG->libdir . '/adminlib.php');
+
 require_login();
-require_once("{$CFG->libdir}/adminlib.php");
+require_capability('local/custompage:manage', \core\context\system::instance());
+admin_externalpage_setup('local_custompage_manage');
 
-admin_externalpage_setup(
-    'managecustompages',
-    null,
-    [],
-    new moodle_url('/local/custompage/index.php'),
-    ['pagelayout' => 'admin', 'nosearch' => true]
-);
-
-$PAGE->set_secondary_navigation(false);
-$PAGE->set_heading('');
-$PAGE->requires->js_call_amd('local_custompage/pages_list', 'init');
+$PAGE->set_heading(get_string('managecustompages', 'local_custompage'));
 
 echo $OUTPUT->header();
-
-// Header section with title and create button.
-echo html_writer::start_div('d-flex justify-content-between align-items-center mb-3');
-echo $OUTPUT->heading(get_string('custompages', 'local_custompage'), 2, 'mb-0');
-
-if (permission::can_create_page()) {
-    $renderer = $PAGE->get_renderer('local_custompage');
-    echo $renderer->render_new_page_button();
-}
-echo html_writer::end_div();
-
-// Pages list report.
-try {
-    $report = system_report_factory::create(pages_list::class, \core\context\system::instance());
-    echo html_writer::div($report->output(), 'pages-list-container mt-4');
-} catch (Exception $e) {
-    debugging('Error loading pages list: ' . $e->getMessage(), DEBUG_DEVELOPER);
-    echo $OUTPUT->notification(get_string('error'), 'error');
-}
-
+echo $PAGE->get_renderer('local_custompage')->manage_list();
 echo $OUTPUT->footer();

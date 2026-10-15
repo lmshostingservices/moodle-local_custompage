@@ -1,0 +1,57 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_custompage/page_body
+
+    A page's body and documents.
+
+    Example context (json):
+    {
+        "scopeclass": "local-custompage-design-2", "designcss": "",
+        "content": "<p>Welcome</p>", "hascontent": true, "hasdocuments": true, "embedurl": "#",
+        "isempty": false, "canmanage": false,
+        "documents": [{"name": "guide.pdf", "url": "#", "downloadurl": "#", "size": "120 KB", "icon": ""}]
+    }
+}}
+{{#designcss}}<style>{{{designcss}}}</style>{{/designcss}}
+<div class="local-custompage-page {{scopeclass}}">
+    {{#hascontent}}
+        <div class="local-custompage-content mb-4">{{{content}}}</div>
+    {{/hascontent}}
+    {{#hasdocuments}}
+        <section class="local-custompage-documents mb-4" aria-label="{{#str}}documents, local_custompage{{/str}}">
+            {{#embedurl}}
+                <div class="local-custompage-document-viewer mb-3">
+                    <iframe src="{{embedurl}}" title="{{#str}}documentviewer, local_custompage{{/str}}" loading="lazy"></iframe>
+                </div>
+            {{/embedurl}}
+            <ul class="list-group local-custompage-document-list">
+                {{#documents}}
+                    <li class="list-group-item d-flex align-items-center">
+                        <span class="mr-2 me-2">{{{icon}}}</span>
+                        <a class="flex-grow-1 text-truncate" href="{{url}}" target="_blank" rel="noopener">{{name}}</a>
+                        <span class="text-muted small mx-3 text-nowrap">{{size}}</span>
+                        <a class="btn btn-sm btn-outline-secondary text-nowrap" href="{{downloadurl}}">{{#str}}download{{/str}}</a>
+                    </li>
+                {{/documents}}
+            </ul>
+        </section>
+    {{/hasdocuments}}
+    {{#isempty}}{{#canmanage}}
+        <div class="alert alert-info">{{#str}}emptypage, local_custompage{{/str}}</div>
+    {{/canmanage}}{{/isempty}}
+</div>

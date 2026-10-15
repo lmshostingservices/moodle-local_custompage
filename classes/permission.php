@@ -18,154 +18,116 @@ declare(strict_types=1);
 
 namespace local_custompage;
 
-use core\context;
-use core\context\system;
 use local_custompage\local\helpers\audience;
 use local_custompage\local\models\page;
 
 /**
- * Page permission class.
+ * Who can manage and who can see custom pages.
  *
- * This class handles all permission checks for custom pages.
+ * Two rules only:
+ * - People with local/custompage:manage (site admins, and the Manager role by default) can manage and see every page.
+ * - Everyone else sees a page when they are in its audience (see {@see audience::get_allowed_pages()}).
  *
  * @package    local_custompage
- * @copyright  2021 Paul Holden <paulh@moodle.com>
  * @copyright  2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class permission {
     /**
-     * Require given user can view pages list
+     * Whether the user can create, edit, reorder and delete pages.
      *
-     * @param int|null $userid User ID to check, or the current user if omitted
-     * @param context|null $context
-     * @throws page_access_exception
-     */
-    public static function require_can_view_pages_list(?int $userid = null, ?\core\context $context = null): void {
-        if (!static::can_view_pages_list($userid, $context)) {
-            throw new page_access_exception();
-        }
-    }
-
-    /**
-     * Whether given user can view pages list
-     *
-     * @param int|null $userid User ID to check, or the current user if omitted
-     * @param context|null $context
+     * @param int|null $userid User ID, or the current user if omitted
      * @return bool
      */
-    public static function can_view_pages_list(?int $userid = null, ?\core\context $context = null): bool {
-        if ($context === null) {
-            $context = \core\context\system::instance();
-        }
-
-        return has_any_capability([
-            'local/custompage:editall',
-            'local/custompage:edit',
-            'local/custompage:view',
-        ], $context, $userid);
+    public static function can_manage(?int $userid = null): bool {
+        return has_capability('local/custompage:manage', \core\context\system::instance(), $userid);
     }
 
     /**
-     * Require given user can view page
+     * Require that the current user can manage pages.
      *
-     * @param page $page
-     * @param int|null $userid User ID to check, or the current user if omitted
      * @throws page_access_exception
      */
-    public static function require_can_view_page(page $page, ?int $userid = null): void {
-        if (!static::can_view_page($page, $userid)) {
+    public static function require_can_manage(): void {
+        if (!self::can_manage()) {
+            throw new page_access_exception('errormanage');
+        }
+    }
+
+    /**
+     * The user whose audience membership decides what a visitor sees: the user, or the guest user when not logged in.
+     *
+     * @param int|null $userid
+     * @return int
+     */
+    public static function audience_user_id(?int $userid = null): int {
+        global $USER;
+        if ($userid) {
+            return $userid;
+        }
+        return isloggedin() ? (int) $USER->id : (int) guest_user()->id;
+    }
+
+    /**
+     * Whether the user can see the page.
+     *
+     * @param page $page
+     * @param int|null $userid User ID, or the current visitor if omitted
+     * @return bool
+     */
+    public static function can_view_page(page $page, ?int $userid = null): bool {
+        if (self::can_manage($userid)) {
+            return true;
+        }
+        return in_array((int) $page->get('id'), audience::get_allowed_pages(self::audience_user_id($userid)), true);
+    }
+
+    /**
+     * Require that the current user can see the page.
+     *
+     * @param page $page
+     * @throws page_access_exception
+     */
+    public static function require_can_view_page(page $page): void {
+        if (!self::can_view_page($page)) {
             throw new page_access_exception('errorpageview');
         }
     }
 
     /**
-     * Whether given user can view page
+     * Log the visitor in when the page needs it.
+     *
+     * Pages open to guests are shown to visitors who are not logged in (unless the site forces login);
+     * any other page sends them to the login page.
      *
      * @param page $page
-     * @param int|null $userid User ID to check, or the current user if omitted
-     * @return bool
      */
-    public static function can_view_page(page $page, ?int $userid = null): bool {
-        if (static::can_view_pages_list($userid, $page->get_context())) {
-            return true;
+    public static function require_login_for_page(page $page): void {
+        global $CFG;
+        if (
+            !isloggedin() && empty($CFG->forcelogin)
+                && in_array((int) $page->get('id'), audience::get_allowed_pages((int) guest_user()->id), true)
+        ) {
+            return;
         }
-
-        if (self::can_edit_page($page, $userid)) {
-            return true;
-        }
-
-        $pages = audience::user_pages_list($userid);
-        if (in_array($page->get('id'), $pages)) {
-            return true;
-        }
-
-        return false;
+        require_login(null, false);
     }
 
     /**
-     * Require given user can edit page
+     * IDs of every page the user can see.
      *
-     * @param page $page
-     * @param int|null $userid User ID to check, or the current user if omitted
-     * @throws page_access_exception
+     * @param int|null $userid User ID, or the current visitor if omitted
+     * @return int[]
      */
-    public static function require_can_edit_page(page $page, ?int $userid = null): void {
-        if (!static::can_edit_page($page, $userid)) {
-            throw new page_access_exception('errorpageedit');
+    public static function visible_page_ids(?int $userid = null): array {
+        global $DB, $CFG;
+        if (self::can_manage($userid)) {
+            return array_map('intval', $DB->get_fieldset_select('local_custompages', 'id', '1 = 1'));
         }
-    }
-
-    /**
-     * Whether given user can edit page
-     *
-     * @param page $page The page to check edit permissions for
-     * @param int|null $userid User ID to check, or the current user if omitted
-     * @return bool True if the user can edit the page
-     */
-    public static function can_edit_page(page $page, ?int $userid = null): bool {
-        global $USER;
-
-        // To edit their own pages, users must have either of the 'edit' or 'editall' capabilities.
-        // For pages belonging to other users, they must have the specific 'editall' capability.
-        $userid = $userid ?: (int) $USER->id;
-
-        if ($page->get('usercreated') === $userid) {
-            return has_any_capability([
-                'local/custompage:edit',
-                'local/custompage:editall',
-            ], $page->get_context(), $userid);
-        } else {
-            return has_capability('local/custompage:editall', $page->get_context(), $userid);
+        if (!$userid && !isloggedin() && !empty($CFG->forcelogin)) {
+            // The site makes visitors log in first, so there is nothing to offer them yet.
+            return [];
         }
-    }
-
-    /**
-     * Whether given user can create a new page
-     *
-     * @param int|null $userid User ID to check, or the current user if omitted
-     * @param context|null $context
-     * @return bool
-     */
-    public static function can_create_page(?int $userid = null, ?\core\context $context = null): bool {
-        if ($context === null) {
-            $context = \core\context\system::instance();
-        }
-
-        // Prefer capability.
-        return has_capability('local/custompage:create', $context, $userid);
-    }
-
-    /**
-     * Require given user can create a new page
-     *
-     * @param int|null $userid User ID to check, or the current user if omitted
-     * @param context|null $context
-     * @throws page_access_exception
-     */
-    public static function require_can_create_page(?int $userid = null, ?\core\context $context = null): void {
-        if (!static::can_create_page($userid, $context)) {
-            throw new page_access_exception('errorpagecreate');
-        }
+        return audience::get_allowed_pages(self::audience_user_id($userid));
     }
 }

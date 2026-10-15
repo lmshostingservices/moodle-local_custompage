@@ -72,11 +72,11 @@ class page extends persistent {
     protected static function define_properties(): array {
         return [
             'name' => [
-                'type' => PARAM_CLEANHTML,
+                'type' => PARAM_TEXT,
                 'null' => NULL_NOT_ALLOWED,
             ],
             'title' => [
-                'type' => PARAM_CLEANHTML,
+                'type' => PARAM_TEXT,
                 'null' => NULL_ALLOWED,
                 'default' => null,
             ],
@@ -116,6 +116,49 @@ class page extends persistent {
                 'null' => NULL_NOT_ALLOWED,
                 'default' => 0,
             ],
+            'cardsummary' => [
+                'type' => PARAM_TEXT,
+                'null' => NULL_ALLOWED,
+                'default' => null,
+            ],
+            'content' => [
+                'type' => PARAM_RAW, // pipeline-ignore: PARAM_RAW — editor HTML, always output through format_text().
+                'null' => NULL_ALLOWED,
+                'default' => null,
+            ],
+            'contentformat' => [
+                'type' => PARAM_INT,
+                'default' => FORMAT_HTML,
+            ],
+            'audiencemode' => [
+                'type' => PARAM_INT,
+                'default' => constants::AUDIENCE_INHERIT,
+            ],
+            'designcss' => [
+                'type' => PARAM_RAW, // pipeline-ignore: PARAM_RAW — CSS, only output after scoping by the SCSS compiler.
+                'null' => NULL_ALLOWED,
+                'default' => null,
+            ],
+            'look' => [
+                'type' => PARAM_ALPHANUMEXT,
+                'null' => NULL_ALLOWED,
+                'default' => null,
+            ],
+            'ownerid' => [
+                'type' => PARAM_INT,
+                'null' => NULL_ALLOWED,
+                'default' => null,
+            ],
+            'reviewby' => [
+                'type' => PARAM_INT,
+                'null' => NULL_ALLOWED,
+                'default' => null,
+            ],
+            'designcsscompiled' => [
+                'type' => PARAM_RAW, // pipeline-ignore: PARAM_RAW — compiled CSS printed inside a style tag.
+                'null' => NULL_ALLOWED,
+                'default' => null,
+            ],
             'usercreated' => [
                 'type' => PARAM_INT,
                 'default' => static function (): int {
@@ -127,48 +170,101 @@ class page extends persistent {
     }
 
     /**
-     * Get formatted name with hierarchy indentation for display
+     * Card summary text, formatted for display.
      *
      * @return string
-     * @throws coding_exception
      */
-    public function get_formatted_name_with_indent(): string {
-        $name = $this->get_formatted_name();
-        $depth = $this->get('depth');
-
-        // Add container indicator.
-        if ($this->is_container()) {
-            $name = '📁 ' . $name;
+    public function get_formatted_card_summary(): string {
+        $summary = (string) $this->raw_get('cardsummary');
+        if (trim($summary) === '') {
+            return '';
         }
-
-        if ($depth > 1) {
-            $indent = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $depth - 1);
-            $name = $indent . '└─ ' . $name;
-        }
-
-        return $name;
+        return format_text($summary, FORMAT_PLAIN, ['context' => $this->get_context(), 'para' => false]);
     }
 
     /**
-     * Return formatted page name
+     * Documents uploaded to this page.
+     *
+     * @return \stored_file[]
+     */
+    public function get_documents(): array {
+        return get_file_storage()->get_area_files(
+            $this->get_context()->id,
+            'local_custompage',
+            'documents',
+            0,
+            'sortorder, filename',
+            false
+        );
+    }
+
+    /**
+     * URL of the card image uploaded for this page, if any.
+     *
+     * @return moodle_url|null
+     */
+    public function get_card_image_url(): ?moodle_url {
+        $fs = get_file_storage();
+        $files = $fs->get_area_files($this->get_context()->id, 'local_custompage', 'cardimage', 0, 'filename', false);
+        if (!$files) {
+            return null;
+        }
+        $file = reset($files);
+        return moodle_url::make_pluginfile_url(
+            $file->get_contextid(),
+            $file->get_component(),
+            $file->get_filearea(),
+            null,
+            $file->get_filepath(),
+            $file->get_filename()
+        );
+    }
+
+    /**
+     * Page name, formatted for display (multilang and filters applied).
      *
      * @return string
-     * @throws coding_exception
      */
     public function get_formatted_name(): string {
-        $name = format_text(
-            $this->raw_get('name'),
-            FORMAT_HTML,
-            [
-                'context' => $this->get_context(),
-                'noclean' => false,
-                'filter' => true,
-            ]
-        );
-        $name = format_string($name, true, [
-            'context' => $this->get_context(),
-        ]);
-        return manager::clean_multilang_text($name);
+        return format_string($this->raw_get('name'), true, ['context' => $this->get_context()]);
+    }
+
+    /**
+     * Label used in the main menu: the menu label if set, otherwise the name.
+     *
+     * @return string
+     */
+    public function get_menu_label(): string {
+        $title = trim((string) $this->raw_get('title'));
+        return $title === '' ? $this->get_formatted_name() : format_string($title, true, ['context' => $this->get_context()]);
+    }
+
+    /**
+     * Page body (or a section's intro), formatted for display.
+     *
+     * @return string
+     */
+    public function get_formatted_content(): string {
+        $content = (string) $this->raw_get('content');
+        if (trim(strip_tags($content, '<img><iframe><video><audio><object>')) === '') {
+            return '';
+        }
+        $context = $this->get_context();
+        $content = file_rewrite_pluginfile_urls($content, 'pluginfile.php', $context->id, 'local_custompage', 'content', null);
+        // Only page managers can write page content (a RISK_XSS capability). Keep its structure so designs work, and
+        // remove anything that could run code instead of applying Moodle's general HTML cleaning.
+        $content = \local_custompage\local\helpers\design::sanitise_html($content);
+        return format_text($content, (int) $this->raw_get('contentformat'), ['context' => $context, 'noclean' => true]);
+    }
+
+    /**
+     * Whether this page takes its audience from its section.
+     *
+     * @return bool
+     */
+    public function inherits_audience(): bool {
+        return !$this->is_container() && $this->raw_get('parent')
+            && (int) $this->raw_get('audiencemode') === constants::AUDIENCE_INHERIT;
     }
 
     /**
@@ -189,27 +285,6 @@ class page extends persistent {
      */
     public function is_container(): bool {
         return (bool) $this->get('iscontainer');
-    }
-
-    /**
-     * Returns the formatted title of the page.
-     *
-     * @return string
-     * @throws coding_exception
-     */
-    public function get_formatted_title(): string {
-        $title = format_text(
-            $this->raw_get('title'),
-            FORMAT_HTML,
-            [
-              'context' => $this->get_context(),
-              'noclean' => false,
-              'filter' => true,
-            ]
-        );
-        $title = format_string($title, true, ['context' => $this->get_context()]);
-
-        return manager::clean_multilang_text($title);
     }
 
     /**
@@ -341,6 +416,7 @@ class page extends persistent {
             throw $e;
         }
 
+        \local_custompage\local\helpers\audience::purge_caches();
         // Event triggered outside transaction (events shouldn't be transactional).
         custompage_created::create_from_object($this)->trigger();
     }
@@ -368,6 +444,7 @@ class page extends persistent {
             // Perform an efficient, targeted move operation.
             $this->move_to_parent($this->get('parent'));
         }
+        \local_custompage\local\helpers\audience::purge_caches();
         custompage_updated::create_from_object($this)->trigger();
     }
 
@@ -394,6 +471,7 @@ class page extends persistent {
     protected function after_delete($result): void {
         // No need to update sortthreads - remaining pages maintain their positions.
         // New pages will get the next available sortthread automatically.
+        \local_custompage\local\helpers\audience::purge_caches();
         custompage_deleted::create_from_object($this)->trigger();
     }
 

@@ -1,0 +1,77 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_custompage/manage_list
+
+    Management list of sections and pages.
+
+    Example context (json):
+    {
+        "hasitems": true, "createhuburl": "#", "prompturl": "#",
+        "items": [
+            {"id": 1, "name": "Trainer Resources", "url": "#", "issection": true, "inmenu": true,
+             "audience": "Role: Trainer", "canmoveup": false, "canmovedown": false, "haschildren": true, "childcount": 1,
+             "children": [
+                {"id": 2, "name": "Marking guide", "url": "#", "issection": false, "inmenu": false,
+                 "audience": "Same as its section", "canmoveup": false, "canmovedown": false}
+             ]}
+        ]
+    }
+}}
+<div class="local-custompage-manage">
+    <div class="d-flex flex-wrap mb-3">
+        <a class="btn btn-primary mr-2 me-2 mb-2" href="{{createhuburl}}" data-action-link="create-hub">
+            {{#str}}createhub, local_custompage{{/str}}
+        </a>
+        <button type="button" class="btn btn-secondary mr-2 me-2 mb-2" data-action="local_custompage-new-page" data-parent="0">
+            {{#str}}createsinglepage, local_custompage{{/str}}
+        </button>
+        <a class="btn btn-outline-secondary mb-2" href="{{prompturl}}">
+            {{#str}}downloadprompt, local_custompage{{/str}}
+        </a>
+    </div>
+    <p class="text-muted">{{#str}}managehelp, local_custompage{{/str}}</p>
+    {{#hasitems}}
+        <table class="table generaltable local-custompage-manage-table">
+            <thead>
+                <tr>
+                    <th scope="col">{{#str}}pagename, local_custompage{{/str}}</th>
+                    <th scope="col">{{#str}}whocansee, local_custompage{{/str}}</th>
+                    <th scope="col">{{#str}}upkeep, local_custompage{{/str}}</th>
+                    <th scope="col">{{#str}}inmenu, local_custompage{{/str}}</th>
+                    <th scope="col"><span class="sr-only visually-hidden">{{#str}}actions{{/str}}</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#items}}
+                    {{> local_custompage/manage_row }}
+                    {{#children}}
+                        {{> local_custompage/manage_row }}
+                    {{/children}}
+                {{/items}}
+            </tbody>
+        </table>
+    {{/hasitems}}
+    {{^hasitems}}
+        <div class="alert alert-info">{{#str}}nopages, local_custompage{{/str}}</div>
+    {{/hasitems}}
+</div>
+{{#js}}
+    require(['local_custompage/manage'], function(manage) {
+        manage.init();
+    });
+{{/js}}

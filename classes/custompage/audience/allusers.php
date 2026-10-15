@@ -18,76 +18,35 @@ declare(strict_types=1);
 
 namespace local_custompage\custompage\audience;
 
-use core\context\system;
-use local_custompage\local\audiences\base;
 use core_reportbuilder\local\helpers\database;
-use MoodleQuickForm;
+use local_custompage\local\audiences\base;
 
 /**
- * The backend class for All users audience type
+ * Audience: every logged-in user (not the guest user).
  *
  * @package     local_custompage
- * @copyright   2021 David Matamoros <davidmc@moodle.com>
  * @copyright   2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class allusers extends base {
     /**
-     * Adds audience's elements to the given mform
-     *
-     * @param MoodleQuickForm $mform The form to add elements to
-     */
-    public function get_config_form(MoodleQuickForm $mform): void {
-        $mform->addElement('static', 'allsiteusers', get_string('allsiteusers', 'core_reportbuilder'));
-    }
-
-    /**
-     * Helps to build SQL to retrieve users that matches the current report audience
+     * SQL selecting active, non-guest users.
      *
      * @param string $usertablealias
-     * @return array array of three elements [$join, $where, $params]
+     * @return array
      */
     public function get_sql(string $usertablealias): array {
         global $CFG;
-
-        $guestuser = database::generate_param_name();
-        return ['', "$usertablealias.suspended = 0 AND $usertablealias.deleted = 0 AND $usertablealias.id <> :{$guestuser}",
-            [$guestuser => $CFG->siteguest]];
+        $guest = database::generate_param_name();
+        return ["", "{$usertablealias}.suspended = 0 AND {$usertablealias}.id <> :{$guest}", [$guest => (int) $CFG->siteguest]];
     }
 
     /**
-     * Return user friendly name of this audience type
+     * Name.
      *
      * @return string
      */
     public function get_name(): string {
-        return get_string('allusers', 'core_reportbuilder');
-    }
-
-    /**
-     * Return the description for the audience.
-     *
-     * @return string
-     */
-    public function get_description(): string {
-        return get_string('allsiteusers', 'core_reportbuilder');
-    }
-
-    /**
-     * If the current user is able to add this audience.
-     *
-     * @return bool
-     */
-    public function user_can_add(): bool {
-        return has_capability('moodle/user:viewalldetails', \core\context\system::instance());
-    }
-
-    /**
-     * If the current user is able to edit this audience.
-     *
-     * @return bool
-     */
-    public function user_can_edit(): bool {
-        return has_capability('moodle/user:viewalldetails', \core\context\system::instance());
+        return get_string("audience_allusers", "local_custompage");
     }
 }

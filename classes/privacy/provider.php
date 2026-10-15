@@ -29,6 +29,7 @@ use core_privacy\local\request\transform;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use local_custompage\local\models\audience;
+use local_custompage\local\helpers\feedback;
 use local_custompage\local\models\page;
 
 /**
@@ -56,7 +57,16 @@ class provider implements
             'usermodified' => 'privacy:metadata:page:usermodified',
             'timecreated' => 'privacy:metadata:page:timecreated',
             'timemodified' => 'privacy:metadata:page:timemodified',
+            'ownerid' => 'privacy:metadata:page:ownerid',
         ], 'privacy:metadata:page');
+
+        $collection->add_database_table(feedback::TABLE, [
+            'userid' => 'privacy:metadata:feedback:userid',
+            'helpful' => 'privacy:metadata:feedback:helpful',
+            'comment' => 'privacy:metadata:feedback:comment',
+            'timecreated' => 'privacy:metadata:feedback:timecreated',
+            'timemodified' => 'privacy:metadata:feedback:timemodified',
+        ], 'privacy:metadata:feedback');
 
         $collection->add_database_table(audience::TABLE, [
             'classname' => 'privacy:metadata:audience:classname',
@@ -101,14 +111,20 @@ class provider implements
               FROM {' . page::TABLE . '} p
              WHERE (p.usercreated = ?
                  OR p.usermodified = ?
+                 OR p.ownerid = ?
                  OR p.id IN (
                     SELECT a.pageid
                       FROM {' . audience::TABLE . '} a
                      WHERE a.usercreated = ? OR a.usermodified = ?
                     )
+                 OR p.id IN (
+                    SELECT f.pageid
+                      FROM {' . feedback::TABLE . '} f
+                     WHERE f.userid = ?
+                    )
                    )';
 
-        return $contextlist->add_from_sql($sql, array_fill(0, 4, $userid));
+        return $contextlist->add_from_sql($sql, array_fill(0, 6, $userid));
     }
 
     /**
@@ -126,6 +142,17 @@ class provider implements
                 WHERE ' . $select;
         $userlist->add_from_sql('usercreated', $sql, $params);
         $userlist->add_from_sql('usermodified', $sql, $params);
+
+        // Page owners.
+        $sql = 'SELECT p.ownerid FROM {' . page::TABLE . '} p WHERE ' . $select . ' AND p.ownerid IS NOT NULL';
+        $userlist->add_from_sql('ownerid', $sql, $params);
+
+        // People who answered "Was this helpful?".
+        $sql = 'SELECT f.userid
+                  FROM {' . feedback::TABLE . '} f
+                  JOIN {' . page::TABLE . '} p ON p.id = f.pageid
+                 WHERE ' . $select;
+        $userlist->add_from_sql('userid', $sql, $params);
 
         // Users who have created audiences.
         $sql = 'SELECT a.usercreated, a.usermodified
@@ -149,12 +176,16 @@ class provider implements
         $user = $contextlist->get_user();
 
         // We need to get all pages that the user has created, or pages they have created audience for.
-        $select = '(usercreated = ? OR usermodified = ? OR id IN (
+        $select = '(usercreated = ? OR usermodified = ? OR ownerid = ? OR id IN (
             SELECT a.pageid
               FROM {' . audience::TABLE . '} a
              WHERE a.usercreated = ? OR a.usermodified = ?
+        ) OR id IN (
+            SELECT f.pageid
+              FROM {' . feedback::TABLE . '} f
+             WHERE f.userid = ?
         ))';
-        $params = array_fill(0, 4, $user->id);
+        $params = array_fill(0, 6, $user->id);
 
         foreach (page::get_records_select($select, $params) as $page) {
             $subcontext = static::get_export_subcontext($page);
@@ -168,6 +199,17 @@ class provider implements
             if ($audiences = audience::get_records_select($select, $params)) {
                 static::export_audiences($page->get_context(), $subcontext, $audiences);
             }
+
+            // Their "Was this helpful?" answer.
+            global $DB;
+            if ($answer = $DB->get_record(feedback::TABLE, ['pageid' => $page->get('id'), 'userid' => $user->id])) {
+                writer::with_context($page->get_context())->export_related_data($subcontext, 'feedback', (object) [
+                    'helpful' => transform::yesno($answer->helpful),
+                    'comment' => $answer->comment,
+                    'timecreated' => transform::datetime($answer->timecreated),
+                    'timemodified' => transform::datetime($answer->timemodified),
+                ]);
+            }
         }
     }
 
@@ -177,7 +219,13 @@ class provider implements
      * @param context $context
      */
     public static function delete_data_for_all_users_in_context(context $context): void {
-        // We don't perform any deletion of user data.
+        global $DB;
+        // Pages are site content and stay; people's own answers and ownership are removed.
+        if ($context->contextlevel != CONTEXT_CUSTOMPAGE) {
+            return;
+        }
+        $DB->delete_records(feedback::TABLE, ['pageid' => $context->instanceid]);
+        $DB->set_field(page::TABLE, 'ownerid', null, ['id' => $context->instanceid]);
     }
 
     /**
@@ -186,7 +234,15 @@ class provider implements
      * @param approved_contextlist $contextlist
      */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
-        // We don't perform any deletion of user data.
+        global $DB;
+        $userid = (int) $contextlist->get_user()->id;
+        foreach ($contextlist->get_contexts() as $context) {
+            if ($context->contextlevel != CONTEXT_CUSTOMPAGE) {
+                continue;
+            }
+            $DB->delete_records(feedback::TABLE, ['pageid' => $context->instanceid, 'userid' => $userid]);
+            $DB->set_field(page::TABLE, 'ownerid', null, ['id' => $context->instanceid, 'ownerid' => $userid]);
+        }
     }
 
     /**
@@ -195,7 +251,15 @@ class provider implements
      * @param approved_userlist $userlist
      */
     public static function delete_data_for_users(approved_userlist $userlist): void {
-        // We don't perform any deletion of user data.
+        global $DB;
+        $context = $userlist->get_context();
+        if ($context->contextlevel != CONTEXT_CUSTOMPAGE || !$userids = $userlist->get_userids()) {
+            return;
+        }
+        [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        $params['pageid'] = $context->instanceid;
+        $DB->delete_records_select(feedback::TABLE, "pageid = :pageid AND userid {$insql}", $params);
+        $DB->set_field_select(page::TABLE, 'ownerid', null, "id = :pageid AND ownerid {$insql}", $params);
     }
 
     /**

@@ -22,25 +22,44 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-use core_admin\local\externalpage\accesscallback;
-use local_custompage\permission;
-
 defined('MOODLE_INTERNAL') || die();
 
-  $ADMIN->add(
-      'appearance',
-      new admin_category('custompages', new lang_string('custompages', 'local_custompage')),
-      'themes'
-  );
+$ADMIN->add('appearance', new admin_category('local_custompage', new lang_string('pluginname', 'local_custompage')));
 
-  $ADMIN->add(
-      'custompages',
-      new accesscallback(
-          'managecustompages',
-          get_string('managecustompages', 'local_custompage'),
-          (new moodle_url('/local/custompage/index.php'))->out(),
-          static function (accesscallback $accesscallback): bool {
-            return permission::can_view_pages_list();
-          }
-      )
-  );
+$managepage = new admin_externalpage(
+    'local_custompage_manage',
+    new lang_string('managecustompages', 'local_custompage'),
+    new moodle_url('/local/custompage/index.php'),
+    'local/custompage:manage'
+);
+$ADMIN->add('local_custompage', $managepage);
+
+if ($hassiteconfig) {
+    $settings = new admin_settingpage('local_custompage_settings', new lang_string('intranetsettings', 'local_custompage'));
+    if ($ADMIN->fulltree) {
+        $setting = new admin_setting_configtext(
+            'local_custompage/homelabel',
+            new lang_string('homelabel', 'local_custompage'),
+            new lang_string('homelabel_desc', 'local_custompage'),
+            '',
+            PARAM_TEXT,
+            30
+        );
+        $settings->add($setting);
+        $setting = new admin_setting_configcheckbox(
+            'local_custompage/homeinmenu',
+            new lang_string('homeinmenu', 'local_custompage'),
+            new lang_string('homeinmenu_desc', 'local_custompage'),
+            0
+        );
+        $settings->add($setting);
+        $setting = new admin_setting_confightmleditor(
+            'local_custompage/homeintro',
+            new lang_string('homeintro', 'local_custompage'),
+            new lang_string('homeintro_desc', 'local_custompage'),
+            ''
+        );
+        $settings->add($setting);
+    }
+    $ADMIN->add('local_custompage', $settings);
+}

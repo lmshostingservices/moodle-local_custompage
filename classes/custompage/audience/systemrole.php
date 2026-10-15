@@ -18,115 +18,49 @@ declare(strict_types=1);
 
 namespace local_custompage\custompage\audience;
 
-use core\context\system;
-use local_custompage\local\audiences\base;
 use core_reportbuilder\local\helpers\database;
-use MoodleQuickForm;
+use local_custompage\local\audiences\base;
 
 /**
- * The backend class for Has system role audience type
+ * Audience: users holding any of the chosen roles at site (system) level.
  *
  * @package     local_custompage
- * @copyright   2021 David Matamoros <davidmc@moodle.com>
  * @copyright   2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class systemrole extends base {
     /**
-     * Adds audience's elements to the given mform
+     * Whether any role is chosen.
      *
-     * @param MoodleQuickForm $mform The form to add elements to
+     * @return bool
      */
-    public function get_config_form(MoodleQuickForm $mform): void {
-        $roles = get_assignable_roles(\core\context\system::instance(), ROLENAME_ALIAS);
-
-        $mform->addElement('autocomplete', 'roles', get_string('selectrole', 'role'), $roles, ['multiple' => true]);
-        $mform->addRule('roles', null, 'required', null, 'client');
+    public function is_configured(): bool {
+        return !empty($this->get_configdata()["roles"]);
     }
 
     /**
-     * Helps to build SQL to retrieve users that matches the current audience
+     * SQL selecting users with one of the roles assigned at system level.
      *
      * @param string $usertablealias
-     * @return array array of three elements [$join, $where, $params]
+     * @return array
      */
     public function get_sql(string $usertablealias): array {
         global $DB;
-
-        $roles = $this->get_configdata()['roles'];
-        $prefix = database::generate_param_name() . '_';
-        [$insql, $inparams] = $DB->get_in_or_equal($roles, SQL_PARAMS_NAMED, $prefix);
-
-        // Ensure parameter names and aliases are unique, as the same audience type can be added multiple times to a report.
-        $paramcontextid = database::generate_param_name();
-        [$roleassignments, $context] = database::generate_aliases(2);
-
-        $join = "
-            JOIN {role_assignments} {$roleassignments} ON {$roleassignments}.userid = {$usertablealias}.id
-            JOIN {context} {$context} ON {$context}.id = {$roleassignments}.contextid";
-
-        $where = "{$roleassignments}.contextid = :{$paramcontextid} AND {$roleassignments}.roleid {$insql}";
-
-        return [$join, $where, $inparams + [$paramcontextid => \core\context\system::instance()->id]];
+        $roles = array_map("intval", $this->get_configdata()["roles"] ?? []);
+        [$insql, $params] = $DB->get_in_or_equal($roles, SQL_PARAMS_NAMED, database::generate_param_name() . "_");
+        [$ra] = database::generate_aliases(1);
+        $ctx = database::generate_param_name();
+        $params[$ctx] = \core\context\system::instance()->id;
+        $join = "JOIN {role_assignments} {$ra} ON {$ra}.userid = {$usertablealias}.id";
+        return [$join, "{$ra}.contextid = :{$ctx} AND {$ra}.roleid {$insql}", $params];
     }
 
     /**
-     * Return user friendly name of this audience type
+     * Name.
      *
      * @return string
      */
     public function get_name(): string {
-        return get_string('hassystemrole', 'core_reportbuilder');
-    }
-
-    /**
-     * Return the description for the audience.
-     *
-     * @return string
-     */
-    public function get_description(): string {
-        global $DB;
-        $rolesids = $this->get_configdata()['roles'];
-        $roles = $DB->get_records_list('role', 'id', $rolesids, 'sortorder');
-        $rolesfixed = role_fix_names($roles, \core\context\system::instance(), ROLENAME_ALIAS, true);
-        return $this->format_description_for_multiselect($rolesfixed);
-    }
-
-    /**
-     * If the current user is able to add this audience.
-     *
-     * @return bool
-     */
-    public function user_can_add(): bool {
-        // Check if user is able to assign any role from the system context.
-        $roles = get_assignable_roles(\core\context\system::instance(), ROLENAME_ALIAS);
-        if (empty($roles)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * If the current user is able to edit this audience.
-     *
-     * @return bool
-     */
-    public function user_can_edit(): bool {
-        global $DB;
-
-        // Check if user can assign all saved role types on this audience instance.
-        $roleids = $this->get_configdata()['roles'];
-        $roles = get_assignable_roles(\core\context\system::instance(), ROLENAME_ALIAS);
-
-        // Check that all saved roles still exist.
-        [$insql, $inparams] = $DB->get_in_or_equal($roleids, SQL_PARAMS_NAMED);
-        $records = $DB->get_records_select('role', "id $insql", $inparams);
-
-        if (!empty(array_diff(array_keys($records), array_keys($roles)))) {
-            return false;
-        }
-
-        return true;
+        return get_string("audience_rolesname", "local_custompage");
     }
 }

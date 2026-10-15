@@ -1,0 +1,42 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_custompage/feedback
+
+    "Was this page helpful?" with an optional comment for the page owner.
+
+    Example context (json):
+    {
+        "pageid": 3, "answered": true, "helpful": true, "comment": ""
+    }
+}}
+<section class="lcp-feedback" data-region="lcp-feedback" data-pageid="{{pageid}}"
+    data-answered="{{#answered}}1{{/answered}}{{^answered}}0{{/answered}}" data-helpful="{{#helpful}}1{{/helpful}}{{^helpful}}0{{/helpful}}">
+    <h2 class="lcp-feedback-question" id="lcp-feedback-q-{{pageid}}">{{#str}}feedback_question, local_custompage{{/str}}</h2>
+    <div class="lcp-feedback-buttons" role="group" aria-labelledby="lcp-feedback-q-{{pageid}}">
+        <button type="button" class="lcp-feedback-button" data-helpful="1"
+            aria-pressed="{{#answered}}{{#helpful}}true{{/helpful}}{{^helpful}}false{{/helpful}}{{/answered}}{{^answered}}false{{/answered}}">{{#str}}yes{{/str}}</button>
+        <button type="button" class="lcp-feedback-button" data-helpful="0"
+            aria-pressed="{{#answered}}{{^helpful}}true{{/helpful}}{{#helpful}}false{{/helpful}}{{/answered}}{{^answered}}false{{/answered}}">{{#str}}no{{/str}}</button>
+    </div>
+    <form class="lcp-feedback-more" hidden>
+        <label for="lcp-feedback-comment-{{pageid}}">{{#str}}feedback_commentlabel, local_custompage{{/str}}</label>
+        <textarea class="form-control" id="lcp-feedback-comment-{{pageid}}" rows="3" maxlength="2000">{{comment}}</textarea>
+        <button type="submit" class="btn btn-secondary">{{#str}}feedback_send, local_custompage{{/str}}</button>
+    </form>
+    <p class="lcp-feedback-status" role="status" aria-live="polite">{{#answered}}{{#str}}feedback_thanks, local_custompage{{/str}}{{/answered}}</p>
+</section>

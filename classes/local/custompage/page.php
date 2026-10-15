@@ -30,8 +30,6 @@ namespace local_custompage\local\custompage;
 use local_custompage\constants;
 use local_custompage\local\helpers\page as page_helper;
 use local_custompage\local\models\page as page_persistent;
-use local_custompage\output\page_contents;
-use local_custompage\output\page_details;
 use stdClass;
 
 /**
@@ -54,7 +52,7 @@ class page {
      * @param page_persistent $page The page persistent model.
      */
     public function __construct(page_persistent $page) {
-        $this->page_persistent = $page;
+        $this->pagepersistent = $page;
     }
 
     /**
@@ -63,36 +61,7 @@ class page {
      * @return page_persistent The page persistent.
      */
     final public function get_page_persistent(): page_persistent {
-        return $this->page_persistent;
-    }
-
-    /**
-     * Renders the page details output.
-     *
-     * @return string The rendered HTML for page details.
-     */
-    public function details_output(): string {
-        global $PAGE;
-
-        /** @var \local_custompage\output\renderer $renderer */
-        $renderer = $PAGE->get_renderer('local_custompage');
-        $pagedetails = new page_details($this->get_page_persistent());
-
-        return $renderer->render($pagedetails);
-    }
-
-    /**
-     * Renders the page content output.
-     *
-     * @return string The rendered HTML for page contents.
-     */
-    public function content_output(): string {
-        global $PAGE;
-
-        $renderer = $PAGE->get_renderer('local_custompage');
-        $pagecontents = new page_contents($this->get_page_persistent());
-
-        return $renderer->render($pagecontents);
+        return $this->pagepersistent;
     }
 
     /**
@@ -109,7 +78,7 @@ class page {
      * @return bool True if deletion was successful.
      */
     public function delete(): bool {
-        return page_helper::delete_page((int) $this->page_persistent->get('id'));
+        return page_helper::delete_page((int) $this->pagepersistent->get('id'));
     }
 
     /**
@@ -132,7 +101,7 @@ class page {
         }
 
         // Delegate to the model's swap method.
-        return $this->page_persistent->swap_item_sortthreads($id, $destid);
+        return $this->pagepersistent->swap_item_sortthreads($id, $destid);
     }
 
     /**

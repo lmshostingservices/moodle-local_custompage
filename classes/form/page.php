@@ -18,352 +18,463 @@ declare(strict_types=1);
 
 namespace local_custompage\form;
 
-use coding_exception;
-use core\context;
-use core\context\system;
 use core_form\dynamic_form;
-use dml_exception;
-use Exception;
 use local_custompage\constants;
+use local_custompage\local\helpers\audience;
+use local_custompage\local\helpers\page as pagehelper;
 use local_custompage\local\models\page as page_model;
-use local_custompage\manager;
-use local_custompage\page_access_exception;
 use local_custompage\permission;
 use moodle_url;
-use local_custompage\local\helpers\page as pagehelper;
 
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
-require_once("$CFG->libdir/formslib.php");
+require_once($CFG->libdir . '/formslib.php');
 
 /**
- * Report details form
+ * Create or edit a section or a page (opened in a modal).
+ *
+ * A section only has the fields a section uses; a page only the fields a page uses. The type is chosen when the
+ * item is created and does not change.
  *
  * @package     local_custompage
- * @copyright   2021 David Matamoros <davidmc@moodle.com>
  * @copyright   2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class page extends dynamic_form {
-    /**
-     * Return the context for the form, it should be that of the custom page itself, or system when creating a new page
-     *
-     * @return context
-     */
-    public function get_context_for_dynamic_submission(): \core\context {
-        if ($page = $this->get_custom_page()) {
-            return $page->get_context();
-        } else {
-            return \core\context\system::instance();
-        }
-    }
+    /** @var page_model|null|false Cached page being edited (false = not loaded yet). */
+    private $custompage = false;
 
     /**
-     * Return instance of the custom page we are editing, or null when creating a new page
+     * The page being edited, or null when creating.
      *
      * @return page_model|null
      */
     protected function get_custom_page(): ?page_model {
-        if ($pageid = $this->optional_param('id', 0, PARAM_INT)) {
-            /** @var page_model $custompage */
-            $custompage = manager::get_page_from_id($pageid);
-            return $custompage;
+        if ($this->custompage === false) {
+            $id = $this->optional_param('id', 0, PARAM_INT);
+            $this->custompage = $id ? new page_model($id) : null;
         }
-        return null;
+        return $this->custompage;
     }
 
     /**
-     * Determine whether action buttons should be rendered.
+     * Whether the form is for a section.
      *
      * @return bool
      */
-    protected function need_action_buttons(): bool {
-        if ($needactionbuttons = $this->optional_param('needactionbuttons', 0, PARAM_INT)) {
-            return (bool)$needactionbuttons;
+    protected function is_section(): bool {
+        if ($page = $this->get_custom_page()) {
+            return $page->is_container();
         }
-        return false;
+        return $this->optional_param('type', 'page', PARAM_ALPHA) === 'section';
     }
 
     /**
-     * Form definition
+     * Context: the page's own context, or system when creating.
+     *
+     * @return \core\context
+     */
+    protected function get_context_for_dynamic_submission(): \core\context {
+        $page = $this->get_custom_page();
+        return $page ? $page->get_context() : \core\context\system::instance();
+    }
+
+    /**
+     * Only page managers can use this form.
+     */
+    protected function check_access_for_dynamic_submission(): void {
+        permission::require_can_manage();
+    }
+
+    /**
+     * Editor options for the page body.
+     *
+     * @param \core\context $context
+     * @return array
+     */
+    public static function content_editor_options(\core\context $context): array {
+        global $CFG;
+        return [
+            'maxfiles' => EDITOR_UNLIMITED_FILES,
+            'maxbytes' => $CFG->maxbytes,
+            'subdirs' => 0,
+            'context' => $context,
+            'trusttext' => false,
+            // Page content is sanitised by the plugin (see design::sanitise_html()) so designs keep their structure.
+            'noclean' => true,
+        ];
+    }
+
+    /**
+     * File manager options for page documents.
+     *
+     * @return array
+     */
+    public static function documents_options(): array {
+        global $CFG;
+        return [
+            'subdirs' => 0,
+            'maxfiles' => 20,
+            'maxbytes' => $CFG->maxbytes,
+            'accepted_types' => ['document', 'presentation', 'spreadsheet', '.pdf', 'web_image', 'web_video', 'web_audio'],
+        ];
+    }
+
+    /**
+     * Add "Owner" and "Review by" to a form.
+     *
+     * @param \MoodleQuickForm $mform
+     */
+    public static function add_ownership_fields(\MoodleQuickForm $mform): void {
+        $mform->addElement('autocomplete', 'ownerid', get_string('owner', 'local_custompage'), [], [
+            'ajax' => 'core_user/form_user_selector',
+            'multiple' => false,
+            'noselectionstring' => get_string('noowner', 'local_custompage'),
+            'valuehtmlcallback' => static function ($userid) {
+                $user = $userid ? \core_user::get_user($userid) : null;
+                return $user ? fullname($user) : false;
+            },
+        ]);
+        $mform->setType('ownerid', PARAM_INT);
+        $mform->addHelpButton('ownerid', 'owner', 'local_custompage');
+        $mform->addElement('date_selector', 'reviewby', get_string('reviewby', 'local_custompage'), ['optional' => true]);
+        $mform->addHelpButton('reviewby', 'reviewby', 'local_custompage');
+    }
+
+    /**
+     * Owner and review date from submitted form data, ready to save.
+     *
+     * @param \stdClass $data
+     * @return array
+     */
+    public static function ownership_from_data(\stdClass $data): array {
+        $fields = [];
+        if (property_exists($data, 'ownerid')) {
+            $fields['ownerid'] = (int) $data->ownerid ?: null;
+        }
+        if (property_exists($data, 'reviewby')) {
+            $fields['reviewby'] = (int) $data->reviewby ?: null;
+        }
+        return $fields;
+    }
+
+    /**
+     * File picker options for a design file: an HTML page, or a text file holding one (as saved from ChatGPT).
+     *
+     * @return array
+     */
+    public static function design_file_options(): array {
+        return ['accepted_types' => ['.html', '.htm', '.txt'], 'maxbytes' => 2 * 1024 * 1024];
+    }
+
+    /**
+     * File manager options for the card image.
+     *
+     * @return array
+     */
+    public static function card_image_options(): array {
+        return [
+            'subdirs' => 0,
+            'maxfiles' => 1,
+            'maxbytes' => 5 * 1024 * 1024,
+            'accepted_types' => ['web_image'],
+        ];
+    }
+
+    /**
+     * Sections a page can be placed in.
+     *
+     * @return array id => name
+     */
+    protected function section_options(): array {
+        global $DB;
+        $options = [0 => get_string('nosection', 'local_custompage')];
+        foreach ($DB->get_records('local_custompages', ['iscontainer' => 1], 'sortthread') as $record) {
+            $options[$record->id] = (new page_model(0, $record))->get_formatted_name();
+        }
+        return $options;
+    }
+
+    /**
+     * Form definition.
      */
     public function definition() {
         $mform = $this->_form;
-        $pageid = $this->_customdata['id'] ?? 0;
+        $issection = $this->is_section();
+        $context = $this->get_context_for_dynamic_submission();
 
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
+        $mform->addElement('hidden', 'type', $issection ? 'section' : 'page');
+        $mform->setType('type', PARAM_ALPHA);
 
-        $editoroptions = pagehelper::get_page_editor_options($this->get_context_for_dynamic_submission());
-
-        $mform->addElement('editor', 'name_editor', get_string('name'), ['rows' => 4], $editoroptions);
-        $mform->setType('name_editor', PARAM_CLEANHTML);
-        $mform->addRule('name_editor', null, 'required', null, 'client');
-
-        $mform->addElement('editor', 'title_editor', get_string('title', 'local_custompage'), ['rows' => 4], $editoroptions);
-        $mform->setType('title_editor', PARAM_CLEANHTML);
-
-        // Container page checkbox.
+        // Design: start from an HTML file (for example one made with ChatGPT) and/or edit the page's own CSS.
+        $mform->addElement('header', 'designheader', get_string('design', 'local_custompage'));
+        $mform->setExpanded('designheader', !$this->get_custom_page());
+        $prompturl = new moodle_url('/local/custompage/prompt.php');
+        $mform->addElement('static', 'designintro', '', get_string('design_desc', 'local_custompage', $prompturl->out(false)));
         $mform->addElement(
-            'advcheckbox',
-            'iscontainer',
-            get_string('iscontainer', 'local_custompage'),
-            get_string('iscontainer_desc', 'local_custompage')
+            'filepicker',
+            'designfile',
+            get_string('designfile', 'local_custompage'),
+            null,
+            self::design_file_options()
         );
-        $mform->setType('iscontainer', PARAM_INT);
-        $mform->addHelpButton('iscontainer', 'iscontainer', 'local_custompage');
+        $mform->addHelpButton('designfile', 'designfile', 'local_custompage');
+        $mform->addElement(
+            'textarea',
+            'designcss',
+            get_string('designcss', 'local_custompage'),
+            ['rows' => 8, 'cols' => 60, 'class' => 'text-monospace', 'spellcheck' => 'false']
+        );
+        $mform->setType('designcss', PARAM_RAW); // pipeline-ignore: PARAM_RAW — CSS, only used after scoping by the SCSS compiler.
+        $mform->addHelpButton('designcss', 'designcss', 'local_custompage');
 
-        // Show in primary navigation checkbox.
+        // Basics.
+        $mform->addElement('header', 'basicsheader', get_string('pagesettings', 'local_custompage'));
+        $mform->setExpanded('basicsheader', true);
+        $mform->addElement('text', 'name', get_string('pagename', 'local_custompage'), ['size' => 50, 'maxlength' => 255]);
+        $mform->setType('name', PARAM_TEXT);
+        $mform->addRule('name', null, 'required', null, 'client');
+        $mform->addRule('name', get_string('maximumchars', '', 255), 'maxlength', 255, 'client');
+
+        if (!$issection) {
+            $mform->addElement('select', 'parent', get_string('section', 'local_custompage'), $this->section_options());
+            $mform->setType('parent', PARAM_INT);
+            $mform->addHelpButton('parent', 'section', 'local_custompage');
+            $mform->setDefault('parent', $this->optional_param('parent', 0, PARAM_INT));
+        }
+
         $mform->addElement(
             'advcheckbox',
             'showinprimarynav',
             get_string('showinprimarynav', 'local_custompage'),
             get_string('showinprimarynav_desc', 'local_custompage')
         );
-        $mform->setType('showinprimarynav', PARAM_INT);
         $mform->addHelpButton('showinprimarynav', 'showinprimarynav', 'local_custompage');
+        $mform->addElement('text', 'title', get_string('menulabel', 'local_custompage'), ['size' => 30, 'maxlength' => 255]);
+        $mform->setType('title', PARAM_TEXT);
+        $mform->addHelpButton('title', 'menulabel', 'local_custompage');
+        $mform->hideIf('title', 'showinprimarynav', 'notchecked');
+        if (!$issection) {
+            // Pages inside a section appear in the section's dropdown, not directly in the menu.
+            $mform->hideIf('showinprimarynav', 'parent', 'neq', 0);
+            $mform->hideIf('title', 'parent', 'neq', 0);
+        }
 
-        // Parent page selection.
-        $parentoptions = $this->get_parent_options($pageid);
-        if (!empty($parentoptions)) {
-            $mform->addElement('select', 'parent', get_string('parentpage', 'local_custompage'), $parentoptions);
-            $mform->setType('parent', PARAM_INT);
-            $mform->addHelpButton('parent', 'parentpage', 'local_custompage');
+        // Content.
+        $mform->addElement('header', 'contentheader', get_string($issection ? 'sectionintro' : 'pagecontent', 'local_custompage'));
+        $mform->setExpanded('contentheader', true);
+        $mform->addElement(
+            'editor',
+            'content_editor',
+            get_string($issection ? 'sectionintro' : 'pagecontent', 'local_custompage'),
+            ['rows' => 12],
+            self::content_editor_options($context)
+        );
+        $mform->setType('content_editor', PARAM_RAW); // pipeline-ignore: PARAM_RAW — editor HTML, cleaned on save and output.
+        $mform->addHelpButton('content_editor', $issection ? 'sectionintro' : 'pagecontent', 'local_custompage');
 
-            // Add note about container pages.
+        if (!$issection) {
             $mform->addElement(
-                'static',
-                'containernote',
-                '',
-                get_string('containernote', 'local_custompage')
+                'filemanager',
+                'documents',
+                get_string('documents', 'local_custompage'),
+                null,
+                self::documents_options()
             );
+            $mform->addHelpButton('documents', 'documents', 'local_custompage');
 
-            // Add note about depth limitation.
+            // Card shown in the section.
+            $mform->addElement('header', 'cardheader', get_string('cardsettings', 'local_custompage'));
+            $mform->addElement('static', 'cardnote', '', get_string('cardsettings_desc', 'local_custompage'));
             $mform->addElement(
-                'static',
-                'depthnote',
-                '',
-                get_string('depthlimitation', 'local_custompage', constants::PAGE_MAX_DEPTH - 1)
+                'textarea',
+                'cardsummary',
+                get_string('cardsummary', 'local_custompage'),
+                ['rows' => 3, 'maxlength' => 400]
             );
+            $mform->setType('cardsummary', PARAM_TEXT);
+            $mform->addHelpButton('cardsummary', 'cardsummary', 'local_custompage');
+            $mform->addElement(
+                'filemanager',
+                'cardimage',
+                get_string('cardimage', 'local_custompage'),
+                null,
+                self::card_image_options()
+            );
+            $mform->addHelpButton('cardimage', 'cardimage', 'local_custompage');
+        }
 
-            // Hide elements when container is checked (consolidated for performance).
-            $elementstohide = ['parent', 'containernote', 'depthnote'];
-            foreach ($elementstohide as $element) {
-                $mform->hideIf($element, 'iscontainer', 'checked');
+        // Who can see it.
+        $mform->addElement('header', 'ownershipheader', get_string('ownership', 'local_custompage'));
+        self::add_ownership_fields($mform);
+
+        $mform->addElement('header', 'audienceheader', get_string('whocansee', 'local_custompage'));
+        $mform->setExpanded('audienceheader', true);
+        $mform->addElement('static', 'managersnote', '', get_string('whocansee_desc', 'local_custompage'));
+        if (!$issection) {
+            $mform->addElement('select', 'audiencemode', get_string('audiencemode', 'local_custompage'), [
+                constants::AUDIENCE_INHERIT => get_string('audiencemode_inherit', 'local_custompage'),
+                constants::AUDIENCE_OWN => get_string('audiencemode_own', 'local_custompage'),
+            ]);
+            $mform->setType('audiencemode', PARAM_INT);
+            $mform->hideIf('audiencemode', 'parent', 'eq', 0);
+        }
+        $mform->addElement('advcheckbox', 'aud_allusers', '', get_string('audience_allusers', 'local_custompage'));
+        $mform->addElement('advcheckbox', 'aud_guests', '', get_string('audience_guests_long', 'local_custompage'));
+        $systemroles = array_intersect_key(get_all_roles(), array_flip(get_roles_for_contextlevels(CONTEXT_SYSTEM)));
+        $roles = role_fix_names($systemroles, \core\context\system::instance(), ROLENAME_ALIAS, true);
+        $mform->addElement(
+            'autocomplete',
+            'aud_roles',
+            get_string('audience_rolesname', 'local_custompage'),
+            $roles,
+            ['multiple' => true, 'noselectionstring' => get_string('none')]
+        );
+        $mform->addHelpButton('aud_roles', 'audience_rolesname', 'local_custompage');
+        $mform->addElement('autocomplete', 'aud_users', get_string('audience_usersname', 'local_custompage'), [], [
+            'ajax' => 'core_user/form_user_selector',
+            'multiple' => true,
+            'noselectionstring' => get_string('none'),
+            'valuehtmlcallback' => static function ($userid) {
+                $user = \core_user::get_user($userid);
+                return $user ? fullname($user) : false;
+            },
+        ]);
+        if (!$issection) {
+            // When the page uses its section's audience, the choices below do not apply.
+            foreach (['aud_allusers', 'aud_guests', 'aud_roles', 'aud_users'] as $element) {
+                $mform->hideIf($element, 'audiencemode', 'eq', constants::AUDIENCE_INHERIT);
             }
-        }
-
-        if ($this->need_action_buttons()) {
-            $this->add_action_buttons(false);
-        }
-    }
-
-    /**
-     * Process the form submission
-     *
-     * @return string The URL to advance to upon completion
-     */
-    public function process_dynamic_submission() {
-
-        require_sesskey();
-
-        $data = $this->get_data();
-        $context = $this->get_context_for_dynamic_submission();
-        $editoroptions = pagehelper::get_page_editor_options($context);
-
-        $data = file_postupdate_standard_editor($data, 'name', $editoroptions, $context);
-
-        $data = file_postupdate_standard_editor($data, 'title', $editoroptions, $context);
-
-        if ($data->id) {
-            $pagepersistent = pagehelper::update_page($data);
-        } else {
-            $pagepersistent = pagehelper::create_page($data);
-        }
-
-        return (new moodle_url('/local/custompage/edit.php', ['id' => $pagepersistent->get('id')]))->out(false);
-    }
-
-    /**
-     * Load in existing data as form defaults
-     */
-    public function set_data_for_dynamic_submission(): void {
-        if ($page = $this->get_custom_page()) {
-            $context = $this->get_context_for_dynamic_submission();
-            $editoroptions = pagehelper::get_page_editor_options($context);
-            $pagedata = $page->to_record();
-            $pagedata = file_prepare_standard_editor($pagedata, 'name', $editoroptions, $context);
-            $pagedata = file_prepare_standard_editor($pagedata, 'title', $editoroptions, $context);
-            $this->set_data($pagedata);
+            // A page outside a section always has its own audience: keep "Choose who can see this page" selected.
+            global $PAGE;
+            $PAGE->requires->js_call_amd('local_custompage/pageform', 'init');
         }
     }
 
     /**
-     * URL of the page using this form
-     *
-     * @return moodle_url
-     */
-    public function get_page_url_for_dynamic_submission(): moodle_url {
-        return new moodle_url('/local/custompage/index.php');
-    }
-
-    /**
-     * Get parent page options
-     *
-     * @param int $currentpageid
-     * @return array
-     * @throws coding_exception
-     * @throws dml_exception
-     */
-    private function get_parent_options(int $currentpageid = 0): array {
-        global $DB;
-        $options = [0 => get_string('noparent', 'local_custompage')];
-
-        // Get all pages except current page and its descendants.
-        // $excludeids = [$currentpageid].
-
-        $conditions = ['iscontainer' => 1];
-        $excludeids = [];
-
-        if ($currentpageid > 0) {
-            // Get all descendant IDs to exclude them from parent options.
-            // $descendants = $this->get_descendant_ids($currentpageid).
-            // $excludeids = array_merge($excludeids, $descendants).
-            $excludeids[] = $currentpageid;
-        }
-
-        if (!empty($excludeids)) {
-            [$notsql, $notparams] = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exclude', false);
-            $sql = "SELECT id, name, depth, path
-                FROM {local_custompages}
-                WHERE id $notsql AND iscontainer = :iscontainer
-                ORDER BY name ASC";
-            $params = array_merge($notparams, ['iscontainer' => 1]);
-            $pages = $DB->get_records_sql($sql, $params);
-        } else {
-            $pages = $DB->get_records('local_custompages', $conditions, 'name ASC', 'id, name, depth, path');
-        }
-
-        foreach ($pages as $page) {
-            $pagepersistent = new page_model(0, $page);
-            $options[$page->id] = $pagepersistent->get_formatted_name();
-        }
-
-        return $options;
-    }
-
-    /**
-     * Get descendant page IDs
-     *
-     * @param int $pageid
-     * @return array
-     * @throws dml_exception
-     */
-    private function get_descendant_ids(int $pageid): array {
-        global $DB;
-
-        $descendants = [];
-        $children = $DB->get_records('local_custompages', ['parent' => $pageid], '', 'id');
-
-        foreach ($children as $child) {
-            $descendants[] = $child->id;
-            $descendants = array_merge($descendants, $this->get_descendant_ids($child->id));
-        }
-
-        return $descendants;
-    }
-
-    /**
-     * Perform some extra moodle validation
+     * Validation.
      *
      * @param array $data
      * @param array $files
      * @return array
-     * @throws coding_exception
      */
     public function validation($data, $files): array {
+        global $DB;
         $errors = parent::validation($data, $files);
-
-        if (empty($data['name_editor']['text'])) {
-            $errors['name_editor'] = get_string('required');
+        if (trim((string) ($data['name'] ?? '')) === '') {
+            $errors['name'] = get_string('required');
         }
-
-        // Container pages cannot have parents.
-        if (!empty($data['iscontainer']) && !empty($data['parent'])) {
-            $errors['iscontainer'] = get_string('containermustberoot', 'local_custompage');
+        if (!empty($data['parent']) && !$DB->record_exists('local_custompages', ['id' => $data['parent'], 'iscontainer' => 1])) {
+            $errors['parent'] = get_string('invalidsection', 'local_custompage');
         }
-
-        // Validate parent selection for content pages.
-        if (empty($data['iscontainer']) && !empty($data['parent'])) {
-            if (!empty($data['id']) && $data['parent'] == $data['id']) {
-                $errors['parent'] = get_string('cannotbeselfparent', 'local_custompage');
-            }
-
-            // Check that parent is a container page.
-            try {
-                $parent = new page_model($data['parent']);
-                if (!$parent->is_container()) {
-                    $errors['parent'] = get_string('parentmustbecontainer', 'local_custompage');
-                }
-            } catch (\Exception $e) {
-                $errors['parent'] = get_string('invalidparent', 'local_custompage');
-            }
+        // Check the design CSS (from the textarea, or the uploaded file which replaces it) can be used.
+        $css = (string) ($data['designcss'] ?? '');
+        if ($file = self::get_draft_file((int) ($data['designfile'] ?? 0))) {
+            [$css] = \local_custompage\local\helpers\design::import_html($file->get_content());
         }
-
-        // Check if trying to change container to content page when it has children.
-        if (!empty($data['id']) && empty($data['iscontainer'])) {
-            try {
-                $currentpage = new page_model($data['id']);
-                if ($currentpage->is_container() && $currentpage->has_children()) {
-                    $errors['iscontainer'] = get_string('containerhaschildren', 'local_custompage');
-                }
-            } catch (\Exception $e) {
-                $errors['id'] = get_string('invalidpageid', 'local_custompage');
-            }
+        try {
+            \local_custompage\local\helpers\design::scope_css($css, 0);
+        } catch (\moodle_exception $e) {
+            $errors[!empty($file) ? 'designfile' : 'designcss'] = $e->getMessage();
         }
-
         return $errors;
     }
 
     /**
-     * Ensure current user is able to use this form
-     *
-     * A {@see \core_reportbuilder\report_access_exception} will be thrown if they can't
-     *
-     * @throws page_access_exception
+     * Load the page (or defaults for a new one).
      */
-    protected function check_access_for_dynamic_submission(): void {
+    public function set_data_for_dynamic_submission(): void {
         $page = $this->get_custom_page();
+        $context = $this->get_context_for_dynamic_submission();
 
+        $data = (object) [
+            'type' => $this->is_section() ? 'section' : 'page',
+            'content' => '',
+            'contentformat' => FORMAT_HTML,
+            'parent' => $this->optional_param('parent', 0, PARAM_INT),
+            'audiencemode' => $this->optional_param('parent', 0, PARAM_INT) ? constants::AUDIENCE_INHERIT
+                : constants::AUDIENCE_OWN,
+            'showinprimarynav' => $this->is_section() ? 1 : 0,
+            'ownerid' => (int) $GLOBALS['USER']->id,
+        ];
         if ($page) {
-            permission::require_can_edit_page($page);
-        } else {
-            permission::require_can_create_page();
+            $data = (object) array_merge((array) $data, (array) $page->to_record());
+            $data->parent = (int) $page->get('parent');
+            if (!$data->parent) {
+                $data->audiencemode = constants::AUDIENCE_OWN;
+            }
+            $selection = audience::get_selection((int) $page->get('id'));
+            $data->aud_allusers = (int) $selection->allusers;
+            $data->aud_guests = (int) $selection->guests;
+            $data->aud_roles = $selection->roles;
+            $data->aud_users = $selection->users;
         }
+
+        $data = file_prepare_standard_editor(
+            $data,
+            'content',
+            self::content_editor_options($context),
+            $context,
+            'local_custompage',
+            'content',
+            0
+        );
+
+        if (!$this->is_section()) {
+            foreach (['documents' => self::documents_options(), 'cardimage' => self::card_image_options()] as $area => $options) {
+                $draftid = file_get_submitted_draft_itemid($area);
+                file_prepare_draft_area($draftid, $page ? $context->id : null, 'local_custompage', $area, 0, $options);
+                $data->$area = $draftid;
+            }
+        }
+
+        $this->set_data($data);
     }
 
     /**
-     * Check if setting parent would create circular reference
+     * Save the section or page.
      *
-     * @param int $parentid
-     * @param int $pageid
-     * @return bool
+     * @return string URL of the page
      */
-    private function would_create_circular_reference(int $parentid, int $pageid): bool {
-        try {
-            $current = new page_model($parentid);
+    public function process_dynamic_submission() {
+        $data = $this->get_data();
+        $data->iscontainer = $this->is_section() ? 1 : 0;
+        $page = pagehelper::save_from_form($data, $this->get_custom_page());
+        return $page->get_url()->out(false);
+    }
 
-            while ($current) {
-                if ($current->get('id') == $pageid) {
-                    return true;
-                }
-                $current = $current->get_page_parent();
-            }
-        } catch (Exception $e) {
-            return false;
+    /**
+     * URL of the page that hosts this form.
+     *
+     * @return moodle_url
+     */
+    protected function get_page_url_for_dynamic_submission(): moodle_url {
+        $page = $this->get_custom_page();
+        return $page ? $page->get_url() : new moodle_url('/local/custompage/index.php');
+    }
+
+    /**
+     * The file uploaded into a filepicker draft area, if any.
+     *
+     * @param int $draftitemid
+     * @return \stored_file|null
+     */
+    public static function get_draft_file(int $draftitemid): ?\stored_file {
+        global $USER;
+        if (!$draftitemid) {
+            return null;
         }
-
-        return false;
+        $files = get_file_storage()->get_area_files(
+            \core\context\user::instance($USER->id)->id,
+            'user',
+            'draft',
+            $draftitemid,
+            'id DESC',
+            false
+        );
+        return $files ? reset($files) : null;
     }
 }

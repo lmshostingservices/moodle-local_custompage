@@ -199,36 +199,19 @@ final class page_test extends advanced_testcase {
     }
 
     /**
-     * Test get_formatted_title method.
+     * Menu label: the label when set, otherwise the name.
      */
-    public function test_get_formatted_title(): void {
+    public function test_get_menu_label(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
 
-        $pagedata = new stdClass();
-        $pagedata->name = 'Test Page';
-        $pagedata->title = 'Test Title';
-        $page = new page(0, $pagedata);
+        $page = new page(0, (object) ['name' => 'Trainer Resources', 'title' => 'Trainers']);
         $page->create();
+        $this->assertEquals('Trainers', $page->get_menu_label());
 
-        $formattedtitle = $page->get_formatted_title();
-        $this->assertEquals('Test Title', $formattedtitle);
-    }
-
-    /**
-     * Test get_formatted_title returns empty string when no title set.
-     */
-    public function test_get_formatted_title_null(): void {
-        $this->resetAfterTest();
-        $this->setAdminUser();
-
-        $pagedata = new stdClass();
-        $pagedata->name = 'Test Page';
-        $page = new page(0, $pagedata);
+        $page = new page(0, (object) ['name' => 'Help Centre']);
         $page->create();
-
-        $formattedtitle = $page->get_formatted_title();
-        $this->assertEquals('', $formattedtitle);
+        $this->assertEquals('Help Centre', $page->get_menu_label());
     }
 
     /**

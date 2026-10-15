@@ -1,0 +1,106 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_custompage/home
+
+    Intranet home: hubs (each with a glimpse of its pages), single pages, and what changed recently.
+
+    Example context (json):
+    {
+        "uniqid": "lcp3", "title": "Intranet", "intro": "", "showfilter": true, "canmanage": false, "manageurl": "#",
+        "hashubs": true, "haspages": true, "hasrecent": true, "isempty": false,
+        "hubs": [{"name": "Trainer procedures", "url": "#", "summary": "How we deliver training.", "look": "studio",
+            "count": 5, "filtertext": "Trainer procedures", "preview": [{"name": "Behaviour"}, {"name": "Marking"}], "more": 3}],
+        "pages": [{"name": "Privacy notice", "url": "#", "summary": "", "filtertext": "Privacy notice"}],
+        "recent": [{"name": "Behaviour", "url": "#", "hub": "Trainer procedures", "updated": "today", "badge": true}]
+    }
+}}
+<div class="lcp-shell lcp-home" id="{{uniqid}}">
+    <header class="lcp-pagehead lcp-home-head">
+        <h1 class="lcp-title">{{title}}</h1>
+        {{#intro}}<div class="lcp-lead lcp-home-intro">{{{intro}}}</div>{{/intro}}
+    </header>
+    {{#isempty}}
+        <div class="lcp-home-empty">
+            {{#canmanage}}<p>{{#str}}home_empty_manager, local_custompage{{/str}}</p>
+                <a class="btn btn-primary" href="{{manageurl}}">{{#str}}managecustompages, local_custompage{{/str}}</a>{{/canmanage}}
+            {{^canmanage}}<p>{{#str}}home_empty, local_custompage{{/str}}</p>{{/canmanage}}
+        </div>
+    {{/isempty}}
+    {{^isempty}}
+        {{#showfilter}}
+            <div class="lcp-hubsearch">
+                <label class="sr-only visually-hidden" for="{{uniqid}}-filter">{{#str}}searchintranet, local_custompage{{/str}}</label>
+                <input type="search" class="lcp-filter form-control" id="{{uniqid}}-filter" autocomplete="off"
+                    placeholder="{{#str}}searchintranet, local_custompage{{/str}}" data-lcp-filter="#{{uniqid}}-all">
+            </div>
+        {{/showfilter}}
+        <div id="{{uniqid}}-all">
+            {{#hashubs}}
+                <section class="lcp-home-section" aria-labelledby="{{uniqid}}-hubs">
+                    <h2 class="lcp-home-heading" id="{{uniqid}}-hubs">{{#str}}home_hubs, local_custompage{{/str}}</h2>
+                    <ul class="lcp-hubtiles">
+                        {{#hubs}}
+                            <li class="lcp-hubtile lcp-look-{{look}}" data-filter-text="{{filtertext}}">
+                                <a class="lcp-hubtile-link" href="{{url}}">
+                                    <span class="lcp-hubtile-name">{{name}}</span>
+                                    {{#summary}}<span class="lcp-hubtile-summary">{{{summary}}}</span>{{/summary}}
+                                    <span class="lcp-hubtile-spine" aria-hidden="true">
+                                        {{#preview}}<span class="lcp-hubtile-page">{{name}}</span>{{/preview}}
+                                        {{#more}}<span class="lcp-hubtile-more">{{#str}}andmore, local_custompage, {{more}}{{/str}}</span>{{/more}}
+                                    </span>
+                                    <span class="lcp-hubtile-count">{{#str}}npages, local_custompage, {{count}}{{/str}}</span>
+                                </a>
+                            </li>
+                        {{/hubs}}
+                    </ul>
+                </section>
+            {{/hashubs}}
+            <div class="lcp-home-columns">
+                {{#haspages}}
+                    <section class="lcp-home-section" aria-labelledby="{{uniqid}}-pages">
+                        <h2 class="lcp-home-heading" id="{{uniqid}}-pages">{{#str}}home_pages, local_custompage{{/str}}</h2>
+                        <ul class="lcp-linklist">
+                            {{#pages}}
+                                <li data-filter-text="{{filtertext}}"><a href="{{url}}">{{name}}</a>
+                                    {{#summary}}<span class="lcp-linklist-note">{{{summary}}}</span>{{/summary}}</li>
+                            {{/pages}}
+                        </ul>
+                    </section>
+                {{/haspages}}
+                {{#hasrecent}}
+                    <section class="lcp-home-section" aria-labelledby="{{uniqid}}-recent">
+                        <h2 class="lcp-home-heading" id="{{uniqid}}-recent">{{#str}}home_recent, local_custompage{{/str}}</h2>
+                        <ul class="lcp-linklist">
+                            {{#recent}}
+                                <li data-filter-text="{{name}} {{hub}}"><a href="{{url}}">{{name}}</a>
+                                    {{#badge}}<span class="lcp-badge lcp-badge-new">{{#str}}badge_new, local_custompage{{/str}}</span>{{/badge}}
+                                    <span class="lcp-linklist-note">{{#hub}}{{hub}}, {{/hub}}{{updated}}</span></li>
+                            {{/recent}}
+                        </ul>
+                    </section>
+                {{/hasrecent}}
+            </div>
+        </div>
+        <p class="lcp-filter-empty" hidden>{{#str}}nomatchingpages, local_custompage{{/str}}</p>
+    {{/isempty}}
+</div>
+{{#js}}
+    require(['local_custompage/reader'], function(reader) {
+        reader.init('#{{uniqid}}');
+    });
+{{/js}}

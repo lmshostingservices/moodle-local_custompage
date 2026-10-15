@@ -58,7 +58,7 @@ class audience extends persistent {
                 'type' => PARAM_TEXT,
             ],
             'configdata' => [
-                'type' => PARAM_RAW,
+                'type' => PARAM_RAW, // pipeline-ignore: PARAM_RAW — JSON blob, always json_decode()'d via get_configdata().
                 'default' => '{}',
             ],
             'usercreated' => [

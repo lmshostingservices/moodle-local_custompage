@@ -19,289 +19,217 @@ declare(strict_types=1);
 namespace local_custompage\local\helpers;
 
 use cache;
-use core\context;
-use core\context\system;
-use core_collator;
-use core_component;
-use core_plugin_manager;
 use core_reportbuilder\local\helpers\database;
+use local_custompage\constants;
+use local_custompage\custompage\audience\allusers;
+use local_custompage\custompage\audience\guests;
+use local_custompage\custompage\audience\manual;
+use local_custompage\custompage\audience\systemrole;
 use local_custompage\local\audiences\base;
 use local_custompage\local\models\audience as audience_model;
+use stdClass;
 
 /**
- * Class containing report audience helper methods
+ * Audience rules: who can see which page.
+ *
+ * - A section, a page outside any section, or a page set to "choose who can see this page" is visible to the people
+ *   matched by its own audiences (all logged-in users, guests and visitors, roles, chosen people).
+ * - A page in a section that is set to "same as its section" is visible to the section's audience.
+ * - A section is also visible to anyone who can see at least one of its pages (they only see those pages in it).
+ * - With no audiences, only page managers can see it.
  *
  * @package     local_custompage
- * @copyright   2021 David Matamoros <davidmc@moodle.com>
  * @copyright   2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class audience {
     /**
-     * Return audience instances for a given report. Note that any records pointing to invalid audience types will be excluded
+     * Audience instances stored for a page.
      *
      * @param int $pageid
      * @return base[]
      */
     public static function get_base_records(int $pageid): array {
         $records = audience_model::get_records(['pageid' => $pageid], 'id');
-
         $instances = array_map(static function (audience_model $audience): ?base {
             return base::instance(0, $audience->to_record());
         }, $records);
-
-        // Filter and remove null elements (invalid audience types).
-        return array_filter($instances);
+        return array_values(array_filter($instances));
     }
 
     /**
-     * Returns list of custompages IDs that the specified user can access, based on audience configuration.
-     * This can be expensive if the site has lots of reports, with lots of audiences, so we cache the result
-     * for the duration of the users session.
+     * IDs of the pages the user can see through audiences (page managers are handled in {@see \local_custompage\permission}).
      *
-     * @param int|null $userid User ID to check, or the current user if omitted
+     * Cached per user; the cache is purged whenever a page or an audience changes.
+     *
+     * @param int $userid
      * @return int[]
      */
-    public static function get_allowed_pages(?int $userid = null): array {
-        global $USER, $DB;
+    public static function get_allowed_pages(int $userid): array {
+        global $DB;
 
-        $userid = $userid ?: (int) $USER->id;
-
-        // Prepare cache, if we previously stored the users allowed reports then return that.
         $cache = cache::make('local_custompage', 'custompage_allowed_pages');
-        $cachedpages = $cache->get($userid);
-        if ($cachedpages !== false) {
-            return $cachedpages;
+        $cached = $cache->get($userid);
+        if ($cached !== false) {
+            return $cached;
         }
 
-        $allowedpages = [];
+        // Pages whose own audiences match the user.
+        $ownmatch = [];
         $pageaudiences = [];
-
-        // Retrieve all audiences and group them by report for convenience.
-        $audiences = audience_model::get_records();
-        foreach ($audiences as $audience) {
-            $pageaudiences[$audience->get('pageid')][] = $audience;
+        foreach (audience_model::get_records() as $audience) {
+            $pageaudiences[(int) $audience->get('pageid')][] = $audience;
         }
-
         foreach ($pageaudiences as $pageid => $audiences) {
-            // Generate audience SQL based on those for the current report.
             [$wheres, $params] = self::user_audience_sql($audiences);
-            if (count($wheres) === 0) {
+            if (!$wheres) {
                 continue;
             }
-
             $paramuserid = database::generate_param_name();
             $params[$paramuserid] = $userid;
-
-            $sql = "SELECT DISTINCT(u.id)
+            $sql = "SELECT 1
                       FROM {user} u
                      WHERE (" . implode(' OR ', $wheres) . ")
                        AND u.deleted = 0
                        AND u.id = :{$paramuserid}";
-
-            // If we have a matching record, user can view the report.
             if ($DB->record_exists_sql($sql, $params)) {
-                $allowedpages[] = $pageid;
+                $ownmatch[$pageid] = true;
             }
         }
 
-        // Store users allowed reports in cache.
-        $cache->set($userid, $allowedpages);
+        // Apply inheritance, then make sections visible through their visible pages.
+        $pages = $DB->get_records('local_custompages', null, '', 'id, parent, iscontainer, audiencemode');
+        $allowed = [];
+        foreach ($pages as $page) {
+            $inherits = !$page->iscontainer && !empty($page->parent)
+                && (int) $page->audiencemode === constants::AUDIENCE_INHERIT;
+            $source = $inherits ? (int) $page->parent : (int) $page->id;
+            if (!empty($ownmatch[$source])) {
+                $allowed[(int) $page->id] = true;
+            }
+        }
+        foreach ($pages as $page) {
+            if (!empty($page->parent) && !empty($allowed[(int) $page->id]) && isset($pages[$page->parent])) {
+                $allowed[(int) $page->parent] = true;
+            }
+        }
 
-        return $allowedpages;
+        $result = array_map('intval', array_keys($allowed));
+        sort($result);
+        $cache->set($userid, $result);
+        return $result;
     }
 
     /**
-     * Purge the audience cache of allowed reports
+     * Purge the cache of pages each user can see.
      */
     public static function purge_caches(): void {
         cache::make('local_custompage', 'custompage_allowed_pages')->purge();
     }
 
     /**
-     * Generate SQL select clause and params for selecting reports specified user can access, based on audience configuration
-     *
-     * @param string $pagetablealias
-     * @param int|null $userid User ID to check, or the current user if omitted
-     * @return array
-     */
-    public static function user_pages_list_sql(string $pagetablealias, ?int $userid = null): array {
-        global $DB;
-
-        $allowedpages = self::get_allowed_pages($userid);
-
-        if (empty($allowedpages)) {
-            return ['1=0', []];
-        }
-
-        // Get all sql audiences.
-        $prefix = database::generate_param_name() . '_';
-        [$select, $params] = $DB->get_in_or_equal($allowedpages, SQL_PARAMS_NAMED, $prefix);
-        $sql = "{$pagetablealias}.id {$select}";
-
-        return [$sql, $params];
-    }
-
-    /**
-     * Return list of page ID's specified user can access, based on audience configuration
-     *
-     * @param int|null $userid User ID to check, or the current user if omitted
-     * @return int[]
-     */
-    public static function user_pages_list(?int $userid = null): array {
-        global $DB;
-        $pagetablealias = \core_reportbuilder\local\helpers\database::generate_alias();
-        [$select, $params] = self::user_pages_list_sql($pagetablealias, $userid);
-        $sql = "SELECT {$pagetablealias}.id
-                  FROM {local_custompages} $pagetablealias
-                 WHERE {$select}";
-
-        return $DB->get_fieldset_sql($sql, $params);
-    }
-
-    /**
-     * Returns SQL to limit the list of reports to those that the given user has access to
-     *
-     * - A user with 'editall' capability will have access to all reports
-     * - A user with 'edit' capability will have access to:
-     *      - Those reports this user has created
-     *      - Those reports this user is in audience of
-     * - A user with 'view' capability will have access to:
-     *      - Those reports this user is in audience of
-     *
-     * @param string $pagetablealias
-     * @param int|null $userid User ID to check, or the current user if omitted
-     * @param context|null $context
-     * @return array
-     */
-    public static function user_pages_list_access_sql(
-        string $pagetablealias,
-        ?int $userid = null,
-        ?\core\context $context = null
-    ): array {
-        global $DB, $USER;
-
-        if ($context === null) {
-            $context = \core\context\system::instance();
-        }
-
-        // If user can't view all reports, limit the returned list to those reports they can see.
-        if (!has_capability('local/custompage:editall', $context, $userid)) {
-            $pages = self::user_pages_list($userid);
-
-            [$paramprefix, $paramuserid] = database::generate_param_names(2);
-            [$pageselect, $params] = $DB->get_in_or_equal($pages, SQL_PARAMS_NAMED, "{$paramprefix}_", true, null);
-
-            $where = "{$pagetablealias}.id {$pageselect}";
-
-            // User can also see any reports that they can edit.
-            if (has_capability('local/custompage:edit', $context, $userid)) {
-                $where = "({$pagetablealias}.usercreated = :{$paramuserid} OR {$where})";
-                $params[$paramuserid] = $userid ?? $USER->id;
-            }
-
-            return [$where, $params];
-        }
-
-        return ['1=1', []];
-    }
-
-    /**
-     * Return appropriate list of where clauses and params for given audiences
+     * SQL matching users in any of the given audiences.
      *
      * @param audience_model[] $audiences
      * @param string $usertablealias
-     * @return array[] [$wheres, $params]
+     * @return array [string[] $wheres, array $params]
      */
     public static function user_audience_sql(array $audiences, string $usertablealias = 'u'): array {
         $wheres = $params = [];
-
         foreach ($audiences as $audience) {
-            if ($instance = base::instance(0, $audience->to_record())) {
-                $instancetablealias = database::generate_alias();
-                [$instancejoin, $instancewhere, $instanceparams] = $instance->get_sql($instancetablealias);
-
-                $wheres[] = "{$usertablealias}.id IN (
-                    SELECT {$instancetablealias}.id
-                      FROM {user} {$instancetablealias}
-                           {$instancejoin}
-                     WHERE {$instancewhere}
-                     )";
-                $params += $instanceparams;
+            $instance = base::instance(0, $audience->to_record());
+            if (!$instance || !$instance->is_configured()) {
+                continue;
             }
+            $alias = database::generate_alias();
+            [$join, $where, $instanceparams] = $instance->get_sql($alias);
+            $wheres[] = "{$usertablealias}.id IN (SELECT {$alias}.id FROM {user} {$alias} {$join} WHERE {$where})";
+            $params += $instanceparams;
         }
-
         return [$wheres, $params];
     }
 
     /**
-     * Returns the list of audiences types in the system.
+     * The audience settings of a page, in the shape the page form uses.
      *
-     * @return array
+     * @param int $pageid
+     * @return stdClass {allusers: bool, guests: bool, roles: int[], users: int[]}
      */
-    private static function get_audience_types(): array {
-        $sources = [];
-
-        $audiences = core_component::get_component_classes_in_namespace('local_custompage', 'custompage\\audience');
-        foreach ($audiences as $class => $path) {
-            $audienceclass = $class::instance();
-            if (is_subclass_of($class, base::class) && $audienceclass->user_can_add()) {
-                [$component] = explode('\\', $class);
-
-                if ($plugininfo = core_plugin_manager::instance()->get_plugin_info($component)) {
-                    $componentname = $plugininfo->displayname;
-                } else {
-                    $componentname = get_string('site');
-                }
-
-                $sources[$componentname][$class] = $audienceclass->get_name();
+    public static function get_selection(int $pageid): stdClass {
+        $selection = (object) ['allusers' => false, 'guests' => false, 'roles' => [], 'users' => []];
+        foreach (self::get_base_records($pageid) as $instance) {
+            $config = $instance->get_configdata();
+            if ($instance instanceof allusers) {
+                $selection->allusers = true;
+            } else if ($instance instanceof guests) {
+                $selection->guests = true;
+            } else if ($instance instanceof systemrole) {
+                $selection->roles = array_merge($selection->roles, array_map('intval', $config['roles'] ?? []));
+            } else if ($instance instanceof manual) {
+                $selection->users = array_merge($selection->users, array_map('intval', $config['users'] ?? []));
             }
         }
-
-        return $sources;
+        $selection->roles = array_values(array_unique($selection->roles));
+        $selection->users = array_values(array_unique($selection->users));
+        return $selection;
     }
 
     /**
-     * Get all the audiences types the current user can add to, organised by categories.
+     * Replace a page's audiences with the given selection.
      *
-     * @return array
-     *
-     * @deprecated since Moodle 4.1 - please do not use this function any more, {@see custom_page_audience_cards_exporter}
+     * @param int $pageid
+     * @param stdClass $selection {allusers: bool, guests: bool, roles: int[], users: int[]}
      */
-    public static function get_all_audiences_menu_types(): array {
-        debugging('The function ' . __FUNCTION__ . '() is deprecated, please do not use it any more. ' .
-            'See \'custom_report_audience_cards_exporter\' class for replacement', DEBUG_DEVELOPER);
-
-        $menucardsarray = [];
-        $notavailablestr = get_string('notavailable', 'moodle');
-
-        $audiencetypes = self::get_audience_types();
-        $audiencetypeindex = 0;
-        foreach ($audiencetypes as $categoryname => $audience) {
-            $menucards = [
-                'name' => $categoryname,
-                'key' => 'index' . ++$audiencetypeindex,
-            ];
-
-            foreach ($audience as $classname => $name) {
-                $class = $classname::instance();
-                $title = $class->is_available() ? get_string('addaudience', 'core_reportbuilder', $class->get_name()) :
-                    $notavailablestr;
-                $menucard['title'] = $title;
-                $menucard['name'] = $class->get_name();
-                $menucard['disabled'] = !$class->is_available();
-                $menucard['identifier'] = get_class($class);
-                $menucard['action'] = 'add-audience';
-                $menucards['items'][] = $menucard;
-            }
-
-            // Order audience types on each category alphabetically.
-            core_collator::asort_array_of_arrays_by_key($menucards['items'], 'name');
-            $menucards['items'] = array_values($menucards['items']);
-
-            $menucardsarray[] = $menucards;
+    public static function set_selection(int $pageid, stdClass $selection): void {
+        foreach (self::get_base_records($pageid) as $instance) {
+            $instance->get_persistent()->delete();
         }
+        if (!empty($selection->allusers)) {
+            allusers::create($pageid, []);
+        }
+        if (!empty($selection->guests)) {
+            guests::create($pageid, []);
+        }
+        $roles = array_values(array_filter(array_map('intval', (array) ($selection->roles ?? []))));
+        if ($roles) {
+            systemrole::create($pageid, ['roles' => $roles]);
+        }
+        $users = array_values(array_filter(array_map('intval', (array) ($selection->users ?? []))));
+        if ($users) {
+            manual::create($pageid, ['users' => $users]);
+        }
+        self::purge_caches();
+    }
 
-        return $menucardsarray;
+    /**
+     * Plain-English description of who can see a page, for the management list.
+     *
+     * @param \local_custompage\local\models\page $page
+     * @return string
+     */
+    public static function describe(\local_custompage\local\models\page $page): string {
+        if ($page->inherits_audience()) {
+            return get_string('audience_sameassection', 'local_custompage');
+        }
+        $selection = self::get_selection((int) $page->get('id'));
+        $parts = [];
+        if ($selection->allusers) {
+            $parts[] = get_string('audience_allusers', 'local_custompage');
+        }
+        if ($selection->guests) {
+            $parts[] = get_string('audience_guests', 'local_custompage');
+        }
+        if ($selection->roles) {
+            $names = role_fix_names(get_all_roles(), \core\context\system::instance(), ROLENAME_ALIAS, true);
+            $rolenames = array_intersect_key($names, array_flip($selection->roles));
+            if ($rolenames) {
+                $parts[] = get_string('audience_roles', 'local_custompage', implode(', ', $rolenames));
+            }
+        }
+        if ($selection->users) {
+            $n = count($selection->users);
+            $parts[] = get_string($n === 1 ? 'audience_user' : 'audience_users', 'local_custompage', $n);
+        }
+        return $parts ? implode('; ', $parts) : get_string('audience_managersonly', 'local_custompage');
     }
 }

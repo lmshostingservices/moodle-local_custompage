@@ -25,39 +25,32 @@
 defined('MOODLE_INTERNAL') || die;
 
 $functions = [
-  'local_custompage_audiences_delete' => [
-    'classname'    => 'local_custompage\external\audiences\delete',
-    'description'  => 'Delete audience of custompage',
-    'type'         => 'write',
-    'ajax'         => true,
-    'capabilities' => 'local/custompage:edit',
-  ],
-  'local_custompage_page_delete' => [
-    'classname'    => 'local_custompage\external\page\delete',
-    'description'  => 'Delete a custom page',
-    'type'         => 'write',
-    'ajax'         => true,
-    'capabilities' => 'local/custompage:edit',
-  ],
-  'local_custompage_page_update_sort_order' => [
-    'classname'    => 'local_custompage\external\page\update_sort_order',
-    'description'  => 'Update the sort order of custom pages',
-    'type'         => 'write',
-    'ajax'         => true,
-    'capabilities' => 'local/custompage:edit',
-  ],
-  'local_custompage_page_move_up' => [
-    'classname'    => 'local_custompage\external\page\move_up',
-    'description'  => 'Move a custom page up in sort order',
-    'type'         => 'write',
-    'ajax'         => true,
-    'capabilities' => 'local/custompage:edit',
-  ],
-  'local_custompage_page_move_down' => [
-    'classname'    => 'local_custompage\external\page\move_down',
-    'description'  => 'Move a custom page down in sort order',
-    'type'         => 'write',
-    'ajax'         => true,
-    'capabilities' => 'local/custompage:edit',
-  ],
+    'local_custompage_page_delete' => [
+        'classname' => 'local_custompage\\external\\page\\delete',
+        'description' => 'Delete a custom page or section',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'local/custompage:manage',
+    ],
+    'local_custompage_page_move_up' => [
+        'classname' => 'local_custompage\\external\\page\\move_up',
+        'description' => 'Move a custom page or section up',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'local/custompage:manage',
+    ],
+    'local_custompage_page_move_down' => [
+        'classname' => 'local_custompage\\external\\page\\move_down',
+        'description' => 'Move a custom page or section down',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'local/custompage:manage',
+    ],
+    'local_custompage_feedback_submit' => [
+        'classname' => 'local_custompage\\external\\feedback\\submit',
+        'description' => 'Save whether a custom page was helpful',
+        'type' => 'write',
+        'ajax' => true,
+        'loginrequired' => true,
+    ],
 ];

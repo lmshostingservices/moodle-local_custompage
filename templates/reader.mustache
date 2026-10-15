@@ -1,0 +1,113 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_custompage/reader
+
+    A page as a reader sees it: breadcrumb, the hub's pages beside it, a header with how fresh the page is,
+    the page itself, feedback, and links to the previous and next page in the hub.
+
+    Example context (json):
+    {
+        "uniqid": "lcp1", "look": "studio", "name": "Managing behaviour", "ownbanner": false,
+        "crumbs": [{"name": "Intranet", "url": "#"}, {"name": "Trainer procedures", "url": "#"}, {"name": "Managing behaviour", "url": null}],
+        "hassidebar": true, "hubname": "Trainer procedures", "huburl": "#", "position": 2, "count": 4,
+        "items": [{"name": "Induction", "url": "#", "current": false}, {"name": "Managing behaviour", "url": "#", "current": true}],
+        "showfilter": false,
+        "updated": "3 days ago", "updatediso": "2026-10-12", "updatedfull": "12 October 2026", "minutes": 6,
+        "owner": "Jamie Smith", "overdue": false, "reviewdate": "",
+        "body": "<p>Page text</p>", "blocks": "",
+        "feedback": {"pageid": 3, "answered": false, "helpful": false, "comment": ""},
+        "haspager": true, "prev": {"name": "Induction", "url": "#"}, "next": {"name": "Hub overview", "url": "#", "isoverview": true}
+    }
+}}
+<div class="lcp-shell lcp-look-{{look}}{{#hassidebar}} lcp-has-sidebar{{/hassidebar}}{{#ownbanner}} lcp-sidebar-top{{/ownbanner}}" id="{{uniqid}}">
+    {{> local_custompage/crumbs }}
+    <div class="lcp-reader">
+        {{#hassidebar}}
+            <aside class="lcp-sidebar">
+                <details class="lcp-hubnav" data-region="lcp-hubnav" open>
+                    <summary class="lcp-hubnav-summary">
+                        <span class="lcp-hubnav-hub">{{hubname}}</span>
+                        <span class="lcp-hubnav-pos">{{#str}}pageposition, local_custompage, {"position": {{position}}, "count": {{count}} }{{/str}}</span>
+                    </summary>
+                    <nav aria-label="{{#str}}inthishub, local_custompage{{/str}}">
+                        <a class="lcp-hubnav-overview" href="{{huburl}}">{{#str}}huboverview, local_custompage{{/str}}</a>
+                        {{#showfilter}}
+                            <label class="sr-only visually-hidden" for="{{uniqid}}-filter">{{#str}}filterpages, local_custompage{{/str}}</label>
+                            <input type="search" class="lcp-filter form-control" id="{{uniqid}}-filter" autocomplete="off"
+                                placeholder="{{#str}}filterpages, local_custompage{{/str}}" data-lcp-filter="#{{uniqid}}-spine">
+                        {{/showfilter}}
+                        <ol class="lcp-spine" id="{{uniqid}}-spine">
+                            {{#items}}
+                                <li class="lcp-spine-item{{#current}} is-current{{/current}}" data-filter-text="{{name}}">
+                                    <a href="{{url}}"{{#current}} aria-current="page"{{/current}}>{{name}}</a>
+                                </li>
+                            {{/items}}
+                        </ol>
+                        <p class="lcp-filter-empty" hidden>{{#str}}nomatchingpages, local_custompage{{/str}}</p>
+                    </nav>
+                </details>
+            </aside>
+        {{/hassidebar}}
+        <article class="lcp-main">
+            <header class="lcp-pagehead{{#ownbanner}} lcp-pagehead-compact{{/ownbanner}}">
+                <h1 class="lcp-title{{#ownbanner}} sr-only visually-hidden{{/ownbanner}}">{{name}}</h1>
+                <ul class="lcp-meta">
+                    <li><span class="lcp-meta-label">{{#str}}updated, local_custompage{{/str}}</span>
+                        <time datetime="{{updatediso}}" title="{{updatedfull}}">{{updated}}</time></li>
+                    {{#minutes}}<li>{{#str}}minread, local_custompage, {{minutes}}{{/str}}</li>{{/minutes}}
+                    {{#owner}}<li><span class="lcp-meta-label">{{#str}}owner, local_custompage{{/str}}</span> {{owner}}</li>{{/owner}}
+                    {{#overdue}}<li class="lcp-chip lcp-chip-warn">{{#str}}reviewoverdue, local_custompage, {{reviewdate}}{{/str}}</li>{{/overdue}}
+                </ul>
+            </header>
+            <nav class="lcp-jump" data-region="lcp-jump" aria-labelledby="{{uniqid}}-jump" hidden>
+                <span class="lcp-jump-title" id="{{uniqid}}-jump">{{#str}}onthispage, local_custompage{{/str}}</span>
+                <ol class="lcp-outline-list"></ol>
+            </nav>
+            <div class="lcp-body" data-region="lcp-body">{{{body}}}</div>
+            {{{blocks}}}
+            {{#feedback}}{{> local_custompage/feedback }}{{/feedback}}
+            {{#haspager}}
+                <nav class="lcp-pager" aria-label="{{#str}}pagerlabel, local_custompage{{/str}}">
+                    {{#prev}}
+                        <a class="lcp-pager-link lcp-pager-prev" href="{{url}}" rel="prev">
+                            <span class="lcp-pager-dir">{{#str}}previous{{/str}}</span>
+                            <span class="lcp-pager-name">{{name}}</span>
+                        </a>
+                    {{/prev}}
+                    {{#next}}
+                        <a class="lcp-pager-link lcp-pager-next" href="{{url}}"{{^isoverview}} rel="next"{{/isoverview}}>
+                            <span class="lcp-pager-dir">{{#isoverview}}{{#str}}backtohub, local_custompage{{/str}}{{/isoverview}}{{^isoverview}}{{#str}}next{{/str}}{{/isoverview}}</span>
+                            <span class="lcp-pager-name">{{name}}</span>
+                        </a>
+                    {{/next}}
+                </nav>
+            {{/haspager}}
+        </article>
+        <aside class="lcp-outline" data-region="lcp-outline" hidden>
+            <nav aria-labelledby="{{uniqid}}-outline">
+                <p class="lcp-outline-title" id="{{uniqid}}-outline">{{#str}}onthispage, local_custompage{{/str}}</p>
+                <ol class="lcp-outline-list"></ol>
+            </nav>
+        </aside>
+    </div>
+</div>
+{{#js}}
+    require(['local_custompage/reader'], function(reader) {
+        reader.init('#{{uniqid}}');
+    });
+{{/js}}

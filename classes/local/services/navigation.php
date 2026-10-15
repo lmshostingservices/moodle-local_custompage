@@ -19,6 +19,7 @@ declare(strict_types=1);
 namespace local_custompage\local\services;
 
 use coding_exception;
+use local_custompage\local\models\page as page_model;
 use stdClass;
 
 /**
@@ -88,43 +89,72 @@ class navigation {
     }
 
     /**
-     * Add hierarchical menu items to the custom menu string (legacy behavior).
+     * Add custom pages to the primary navigation.
      *
-     * Note: Prefer Moodle navigation nodes where possible.
+     * Only top-level pages flagged "Show in primary navigation" are added. A container with visible
+     * children becomes a dropdown (overview link first, then each child); an empty container is skipped.
      *
-     * @param array $hierarchy
-     * @param int $level
-     * @return void
+     * @param \core\navigation\views\primary $primary
+     * @param array $hierarchy As returned by build_page_hierarchy()
      */
-    public static function add_bootstrap_hierarchical_menu_items(array $hierarchy, int $level = 0): void {
-        global $CFG;
-        // Lazy-load the persistent class only when needed to keep this service generic.
-        $pageclass = '\\local_custompage\\local\\models\\page';
-
+    public static function add_to_primary_navigation(\core\navigation\views\primary $primary, array $hierarchy): void {
+        if ($hierarchy && get_config('local_custompage', 'homeinmenu')) {
+            // The intranet home, for anyone who can open at least one page.
+            $primary->add(
+                \local_custompage\local\helpers\reader::home_label(),
+                new \moodle_url('/local/custompage/home.php'),
+                \navigation_node::TYPE_CUSTOM,
+                null,
+                'local_custompage_home'
+            );
+        }
         foreach ($hierarchy as $node) {
-            $page = $node['page'];
-            if (empty($page->showinprimarynav)) {
+            $record = $node['page'];
+            if (empty($record->showinprimarynav)) {
                 continue;
             }
-            // Instantiate page persistent from record.
-            $custompage = new $pageclass(0, $page);
-            $pagename = $custompage->get_formatted_name();
-            $pagetitle = $custompage->get_formatted_title() ?: $pagename;
 
-            $indent = str_repeat('-', $level);
-            $menuitem = $indent . $pagetitle . '|/local/custompage/view.php?id=' . $page->id;
+            $page = new page_model(0, $record);
+            $url = new \moodle_url('/local/custompage/view.php', ['id' => $record->id]);
+            $text = self::nav_text($page);
 
-            if ($level > 0) {
-                $menuitem .= '|submenu-item level-' . $level;
-            } else {
-                $menuitem .= '|top-level-item';
+            if (!$page->is_container()) {
+                $primary->add($text, $url, \navigation_node::TYPE_CUSTOM, null, 'local_custompage_' . $record->id);
+                continue;
             }
 
-            $CFG->custommenuitems .= "\n" . $menuitem . "\n";
+            if (empty($node['children'])) {
+                continue;
+            }
 
-            if (!empty($node['children'])) {
-                self::add_bootstrap_hierarchical_menu_items($node['children'], $level + 1);
+            $parentnode = $primary->add($text, $url, \navigation_node::TYPE_CUSTOM, null, 'local_custompage_' . $record->id);
+            $parentnode->add(
+                get_string('overview', 'local_custompage'),
+                $url,
+                \navigation_node::TYPE_CUSTOM,
+                null,
+                'local_custompage_' . $record->id . '_overview'
+            );
+            foreach ($node['children'] as $childnode) {
+                $child = new page_model(0, $childnode['page']);
+                $parentnode->add(
+                    self::nav_text($child),
+                    new \moodle_url('/local/custompage/view.php', ['id' => $childnode['page']->id]),
+                    \navigation_node::TYPE_CUSTOM,
+                    null,
+                    'local_custompage_' . $childnode['page']->id
+                );
             }
         }
+    }
+
+    /**
+     * Plain text used for a page in navigation: its menu label, falling back to its name.
+     *
+     * @param page_model $page
+     * @return string
+     */
+    private static function nav_text(page_model $page): string {
+        return trim(strip_tags($page->get_menu_label()));
     }
 }

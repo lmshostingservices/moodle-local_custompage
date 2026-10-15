@@ -29,7 +29,6 @@ use local_custompage\constants;
 use local_custompage\local\custompage\page as page_helper;
 use local_custompage\local\models\page;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Performance benchmark test cases.

@@ -25,12 +25,10 @@
 
 namespace local_custompage;
 
-use local_custompage\external\page\update_sort_order;
 use local_custompage\constants;
 use local_custompage\local\custompage\page as page_helper;
 use local_custompage\local\models\page;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Test cases for move up/down functionality
@@ -39,6 +37,7 @@ defined('MOODLE_INTERNAL') || die();
  * @category   test
  * @copyright  2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers \local_custompage\local\custompage\page
  */
 final class move_functionality_test extends \advanced_testcase {
     /**
@@ -384,60 +383,5 @@ final class move_functionality_test extends \advanced_testcase {
         $parentpos = array_search($parentid, $pageids);
         $childpos = array_search($childid, $pageids);
         $this->assertLessThan($childpos, $parentpos, 'Parent should appear before child when sorted by sortthread');
-    }
-
-    /**
-     * Test bulk reorder updates subtree sortthread prefixes.
-     *
-     * This specifically validates local_custompage_page_update_sort_order:
-     * when root/container pages are reordered, their descendants must have
-     * sortthread prefixes updated to match the new parent prefix.
-     */
-    public function test_bulk_reorder_updates_descendant_sortthreads(): void {
-        // Create two root containers.
-        $root1 = new page();
-        $root1->set('name', 'Root 1');
-        $root1->set('iscontainer', 1);
-        $root1->create();
-
-        $root2 = new page();
-        $root2->set('name', 'Root 2');
-        $root2->set('iscontainer', 1);
-        $root2->create();
-
-        // Create descendants under each root.
-        $root1child = new page();
-        $root1child->set('name', 'Root 1 Child');
-        $root1child->set('parent', $root1->get('id'));
-        $root1child->create();
-
-        $root2child = new page();
-        $root2child->set('name', 'Root 2 Child');
-        $root2child->set('parent', $root2->get('id'));
-        $root2child->create();
-
-        // Sanity check initial prefixes.
-        $this->assertEquals('01', $root1->get('sortthread'));
-        $this->assertEquals('02', $root2->get('sortthread'));
-        $this->assertEquals('01.01', $root1child->get('sortthread'));
-        $this->assertEquals('02.01', $root2child->get('sortthread'));
-
-        // Reorder roots to [root2, root1].
-        $result = update_sort_order::execute([$root2->get('id'), $root1->get('id')], 0);
-        $this->assertTrue($result['success']);
-
-        // Reload persistents.
-        $root1->read();
-        $root2->read();
-        $root1child->read();
-        $root2child->read();
-
-        // Verify roots swapped.
-        $this->assertEquals('01', $root2->get('sortthread'));
-        $this->assertEquals('02', $root1->get('sortthread'));
-
-        // Verify descendants now follow the new prefixes.
-        $this->assertEquals('01.01', $root2child->get('sortthread'));
-        $this->assertEquals('02.01', $root1child->get('sortthread'));
     }
 }

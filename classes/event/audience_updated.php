@@ -72,7 +72,7 @@ class audience_updated extends base {
      * @return string
      */
     public static function get_name() {
-        return get_string('audienceupdated', 'core_reportbuilder');
+        return get_string('audienceupdated', 'local_custompage');
     }
 
     /**

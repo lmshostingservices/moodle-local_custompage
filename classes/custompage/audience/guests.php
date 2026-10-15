@@ -20,87 +20,33 @@ namespace local_custompage\custompage\audience;
 
 use core_reportbuilder\local\helpers\database;
 use local_custompage\local\audiences\base;
-use MoodleQuickForm;
 
 /**
- * Administrators audience type
+ * Audience: the guest user, which is also used for visitors who are not logged in.
  *
  * @package     local_custompage
- * @copyright   2022 Paul Holden <paulh@moodle.com>
  * @copyright   2024 BitAscii Solutions <bitascii.dev@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class guests extends base {
     /**
-     * Add audience elements to the current form
-     *
-     * @param MoodleQuickForm $mform
-     */
-    public function get_config_form(MoodleQuickForm $mform): void {
-        $mform->addElement('static', 'guest', get_string('guest', 'moodle'));
-    }
-
-    /**
-     * Return SQL to retrieve users that match this audience
+     * SQL selecting the guest user.
      *
      * @param string $usertablealias
-     * @return array [$join, $select, $params]
+     * @return array
      */
     public function get_sql(string $usertablealias): array {
-        global $CFG, $DB;
-
-        $siteguest = array_map('intval', explode(',', $CFG->siteguest));
-        [$select, $params] = $DB->get_in_or_equal($siteguest, SQL_PARAMS_NAMED, database::generate_param_name() . '_');
-
-        return ['', "{$usertablealias}.id {$select}", $params];
+        global $CFG;
+        $guest = database::generate_param_name();
+        return ["", "{$usertablealias}.id = :{$guest}", [$guest => (int) $CFG->siteguest]];
     }
 
     /**
-     * Return name of this audience
+     * Name.
      *
      * @return string
      */
     public function get_name(): string {
-        return get_string('nonauthenticatedusers', 'local_custompage');
-    }
-
-    /**
-     * Return description of this audience.
-     *
-     * @return string
-     */
-    public function get_description(): string {
-        $guestuser = guest_user();
-        $guest = fullname($guestuser);
-
-        return $this->format_description_for_multiselect([$guest]);
-    }
-
-    /**
-     * Whether the current user is able to edit this audience
-     *
-     * @return bool
-     */
-    public function user_can_edit(): bool {
-        return $this->user_can_add();
-    }
-
-    /**
-     * Whether the current user is able to add this audience
-     *
-     * @return bool
-     */
-    public function user_can_add(): bool {
-        return is_siteadmin();
-    }
-
-    /**
-     * Determine whether the guests audience is available on this site.
-     *
-     * @return bool
-     */
-    public function is_available(): bool {
-        global $CFG;
-        return (bool)$CFG->guestloginbutton;
+        return get_string("audience_guests", "local_custompage");
     }
 }

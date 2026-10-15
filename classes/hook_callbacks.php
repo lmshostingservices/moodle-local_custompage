@@ -16,15 +16,10 @@
 
 namespace local_custompage;
 
-use core\hook\after_config;
-use core\hook\output\before_http_headers;
-use core\hook\output\before_standard_top_of_body_html_generation;
-
 /**
  * Hook callbacks for local_custompage.
  *
- * Restores the original custom menu items after navigation injection,
- * preventing persistent modification of the global $CFG->custommenuitems.
+ * Adds custom pages to the primary navigation and registers the custom page context level.
  *
  * @package    local_custompage
  * @copyright  2024 BitAscii Solutions <bitascii.dev@gmail.com>
@@ -32,93 +27,70 @@ use core\hook\output\before_standard_top_of_body_html_generation;
  */
 class hook_callbacks {
     /**
-     * Restore the original custom menu items after page rendering.
+     * Add the current user's custom pages to the primary navigation.
      *
-     * The navigation service modifies $CFG->custommenuitems to inject custom pages.
-     * This hook restores the original value to prevent persistent modification.
+     * Top-level pages flagged "Show in primary navigation" are added; a container becomes a dropdown
+     * listing an overview link plus the child pages the user can view.
      *
-     * @param before_standard_top_of_body_html_generation $hook
+     * @param \core\hook\navigation\primary_extend $hook
      */
-    public static function before_standard_top_of_body_html_generation(
-        before_standard_top_of_body_html_generation $hook
-    ): void {
-        global $CFG;
-
-        if (isset($CFG->dbunmodifiedcustommenuitems)) {
-            $CFG->custommenuitems = $CFG->dbunmodifiedcustommenuitems;
-            unset($CFG->dbunmodifiedcustommenuitems);
-        }
-    }
-
-    /**
-     * Inject custom page navigation items before HTTP headers are sent.
-     *
-     * Saves the original $CFG->custommenuitems, then appends custom page
-     * links for the current user. The before_standard_top_of_body_html_generation
-     * hook (below) restores the original value after the nav is rendered.
-     *
-     * @param before_http_headers $hook
-     */
-    public static function before_http_headers_generation(before_http_headers $hook): void {
-        global $CFG, $USER;
-
-        // Skip in AJAX and CLI contexts — no navigation needed.
-        if ((defined('AJAX_SCRIPT') && AJAX_SCRIPT) || (defined('CLI_SCRIPT') && CLI_SCRIPT)) {
+    public static function primary_extend(\core\hook\navigation\primary_extend $hook): void {
+        if (during_initial_install() || (defined('AJAX_SCRIPT') && AJAX_SCRIPT)) {
             return;
         }
-
-        // Guard against double-injection (local_custompage_extend_navigation may also run).
-        if (isset($CFG->dbunmodifiedcustommenuitems)) {
-            return;
-        }
-
-        // Preserve the original custom menu items so the restoration hook can reset them.
-        $CFG->dbunmodifiedcustommenuitems = $CFG->custommenuitems ?? '';
 
         try {
-            // Resolve the active user ID (including guest).
-            if (isloggedin()) {
-                $userid = (int)$USER->id;
-            } else if (!empty($CFG->guestloginbutton)) {
-                $guest = guest_user();
-                $userid = (int)$guest->id;
-            } else {
+            $pageids = permission::visible_page_ids();
+            if (empty($pageids)) {
                 return;
             }
-
-            $pages = \local_custompage\local\helpers\audience::user_pages_list($userid);
-            if (empty($pages)) {
-                return;
-            }
-
-            $hierarchy = \local_custompage\local\services\navigation::build_page_hierarchy($pages);
-            \local_custompage\local\services\navigation::add_bootstrap_hierarchical_menu_items($hierarchy);
-        } catch (\Exception $e) {
-            debugging('local_custompage: error injecting navigation items: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            $hierarchy = \local_custompage\local\services\navigation::build_page_hierarchy($pageids);
+            \local_custompage\local\services\navigation::add_to_primary_navigation(
+                $hook->get_primaryview(),
+                $hierarchy
+            );
+        } catch (\Throwable $e) {
+            debugging('local_custompage: error adding navigation items: ' . $e->getMessage(), DEBUG_DEVELOPER);
         }
     }
 
     /**
-     * Register custom context class after Moodle configuration is loaded.
+     * Register custom context class after Moodle configuration is loaded (Moodle 4.5+ hook).
      *
-     * @param after_config $hook
+     * On Moodle 4.4 the same registration is done by the legacy local_custompage_after_config() callback in lib.php.
+     *
+     * @param \core\hook\after_config $hook
      */
-    public static function after_config(after_config $hook): void {
+    public static function after_config($hook): void {
+        self::register_context_level();
+    }
+
+    /**
+     * Register CONTEXT_CUSTOMPAGE with core.
+     *
+     * Core builds its context level list (context_helper) early in lib/setup.php, before after_config runs,
+     * so the cached list must be reset after adding our level or it will not be recognised.
+     */
+    public static function register_context_level(): void {
         global $CFG;
 
         if (!defined('CONTEXT_CUSTOMPAGE')) {
             define('CONTEXT_CUSTOMPAGE', 75);
         }
 
-        $customcontextclasses = [
-            \CONTEXT_CUSTOMPAGE => 'local_custompage\\custom_context\\context_custompage',
-        ];
-
+        $levels = [];
         if (!empty($CFG->custom_context_classes)) {
-            $existing = (array)$CFG->custom_context_classes;
-            $CFG->custom_context_classes = $existing + $customcontextclasses;
-        } else {
-            $CFG->custom_context_classes = $customcontextclasses;
+            $levels = is_array($CFG->custom_context_classes)
+                ? $CFG->custom_context_classes
+                : (unserialize_array((string) $CFG->custom_context_classes) ?: []);
         }
+
+        if (($levels[\CONTEXT_CUSTOMPAGE] ?? null) === custom_context\context_custompage::class) {
+            return;
+        }
+
+        $levels[\CONTEXT_CUSTOMPAGE] = custom_context\context_custompage::class;
+        $CFG->custom_context_classes = $levels;
+        \core\context_helper::reset_levels();
     }
 }

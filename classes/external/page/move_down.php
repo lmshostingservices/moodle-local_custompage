@@ -66,7 +66,7 @@ class move_down extends external_api {
         // Get the page and validate permissions.
         $page = manager::get_page_from_id($pageid);
         self::validate_context($page->get_context());
-        permission::require_can_edit_page($page);
+        permission::require_can_manage();
 
         // Use the page helper to reorder the page.
         $pagehelper = new page_helper($page);
