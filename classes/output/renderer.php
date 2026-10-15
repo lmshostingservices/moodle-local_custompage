@@ -133,7 +133,7 @@ class renderer extends plugin_renderer_base {
                 'name' => $page->get_formatted_name(),
                 'url' => $page->get_url()->out(false),
                 'summary' => $summary,
-                'filtertext' => trim(strip_tags($page->get_formatted_name() . ' ' . $summary . ' ' . implode(' ', $names))),
+                'filtertext' => reader::plain_text($page->get_formatted_name() . ' ' . $summary . ' ' . implode(' ', $names)),
             ];
             if ($page->is_container()) {
                 if (!$names) {
@@ -161,6 +161,7 @@ class renderer extends plugin_renderer_base {
                 'name' => $page->get_formatted_name(),
                 'url' => $page->get_url()->out(false),
                 'hub' => $hub ? format_string($hub->name) : '',
+                'filtertext' => reader::plain_text($page->get_formatted_name() . ' ' . ($hub ? format_string($hub->name) : '')),
                 'updated' => reader::relative_date((int) ($record->timemodified ?: $record->timecreated)),
                 'badge' => reader::badge($page) === 'new',
             ];
@@ -197,7 +198,8 @@ class renderer extends plugin_renderer_base {
         $hub = reader::get_hub($page);
         $siblings = $hub ? reader::get_visible_children($hub) : [];
         [$position, $previous, $next] = reader::position($page, $siblings);
-        $link = static fn(page $p): array => ['name' => $p->get_formatted_name(), 'url' => $p->get_url()->out(false)];
+        $link = static fn(page $p): array => ['name' => $p->get_formatted_name(), 'url' => $p->get_url()->out(false),
+            'filtertext' => reader::plain_text($p->get_formatted_name())];
 
         $nextlink = $next ? $link($next) : null;
         if ($hub && !$next) {
@@ -228,7 +230,7 @@ class renderer extends plugin_renderer_base {
             'showfilter' => count($siblings) >= 8,
             'items' => $items,
             'updated' => reader::relative_date($updated),
-            'updatediso' => date('Y-m-d', $updated),
+            'updatediso' => userdate($updated, '%Y-%m-%d'),
             'updatedfull' => userdate($updated, get_string('strftimedatefullshort', 'langconfig')),
             'minutes' => reader::reading_minutes($page),
             'owner' => reader::owner_name($page),
@@ -336,6 +338,7 @@ class renderer extends plugin_renderer_base {
                 'addurl' => $page->is_container() ? (new moodle_url('/local/custompage/wizard.php', ['id' => $record->id,
                     'step' => 2]))->out(false) : null,
                 'name' => $page->get_formatted_name(),
+                'plainname' => reader::plain_text($page->get_formatted_name()),
                 'url' => $page->get_url()->out(false),
                 'issection' => $page->is_container(),
                 'inmenu' => !empty($record->showinprimarynav) && empty($record->parent),
@@ -430,6 +433,7 @@ class renderer extends plugin_renderer_base {
             $rows[] = [
                 'id' => $child->get('id'),
                 'name' => $child->get_formatted_name(),
+                'plainname' => reader::plain_text($child->get_formatted_name()),
                 'summary' => $child->get_formatted_card_summary(),
                 'files' => $files ? get_string('nfiles', 'local_custompage', $files) : '',
                 'viewurl' => $child->get_url()->out(false),

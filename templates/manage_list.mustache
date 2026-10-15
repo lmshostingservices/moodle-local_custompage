@@ -50,6 +50,7 @@
     </div>
     <p class="text-muted">{{#str}}managehelp, local_custompage{{/str}}</p>
     {{#hasitems}}
+        <div class="table-responsive">
         <table class="table generaltable local-custompage-manage-table">
             <thead>
                 <tr>
@@ -69,6 +70,7 @@
                 {{/items}}
             </tbody>
         </table>
+        </div>
     {{/hasitems}}
     {{^hasitems}}
         <div class="alert alert-info">{{#str}}nopages, local_custompage{{/str}}</div>

@@ -31,11 +31,19 @@ use local_custompage\local\models\page;
  */
 function xmldb_local_custompage_uninstall(): bool {
 
-    $custompages = page::get_records();
-
-    foreach ($custompages as $custompage) {
+    global $DB, $CFG;
+    require_once($CFG->dirroot . '/local/custompage/lib.php');
+    // Each page's context goes with it: its blocks, role overrides and filter settings would otherwise stay behind
+    // at a context level nothing defines any more.
+    foreach (page::get_records() as $custompage) {
+        try {
+            \context_helper::delete_instance(CONTEXT_CUSTOMPAGE, (int) $custompage->get('id'));
+        } catch (\Throwable $e) {
+            $DB->delete_records('context', ['contextlevel' => CONTEXT_CUSTOMPAGE, 'instanceid' => $custompage->get('id')]);
+        }
         $custompage->delete();
     }
+    $DB->delete_records('local_custompage_feedback');
 
     return true;
 }

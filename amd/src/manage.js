@@ -75,8 +75,9 @@ const callAndReload = (methodname, args, gotoUrl = null) => {
  * @param {HTMLElement} button
  */
 const confirmDelete = async(button) => {
-    const row = button.closest('tr');
-    const name = (row?.querySelector('a')?.textContent || document.querySelector('h1, h2')?.textContent || '').trim();
+    // The name comes from the button itself: rows are table rows on the manage screen and list items in the hub wizard.
+    const row = button.closest('tr, li');
+    const name = (button.dataset.name || row?.querySelector('a')?.textContent || '').trim();
     const isSection = button.dataset.issection === '1';
     const children = parseInt(button.dataset.childcount || '0', 10);
     const bodyKey = isSection && children > 0 ? 'deletesectionconfirm' : 'deleteconfirm';
@@ -90,7 +91,8 @@ const confirmDelete = async(button) => {
     } catch (e) {
         return;
     }
-    const onThisPage = !row;
+    // A delete button on the page being deleted (data-onpage="1") leaves for the manage screen; elsewhere the list reloads.
+    const onThisPage = button.dataset.onpage === '1';
     callAndReload('local_custompage_page_delete', {pageid: parseInt(button.dataset.id, 10)},
         onThisPage ? M.cfg.wwwroot + '/local/custompage/index.php' : null);
 };

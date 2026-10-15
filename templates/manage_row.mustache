@@ -52,7 +52,7 @@
         <button type="button" class="btn btn-sm btn-link" data-action="local_custompage-move" data-direction="down" data-id="{{id}}" {{^canmovedown}}disabled{{/canmovedown}}
             title="{{#str}}movedown{{/str}}">{{#pix}}t/down, core, {{#str}}movedown{{/str}}{{/pix}}</button>
         <button type="button" class="btn btn-sm btn-link text-danger" data-action="local_custompage-delete" data-id="{{id}}"
-            data-name="{{name}}" data-issection="{{#issection}}1{{/issection}}{{^issection}}0{{/issection}}" data-childcount="{{childcount}}"
+            data-name="{{plainname}}" data-issection="{{#issection}}1{{/issection}}{{^issection}}0{{/issection}}" data-childcount="{{childcount}}"
             title="{{#str}}delete{{/str}}">{{#pix}}t/delete, core, {{#str}}delete{{/str}}{{/pix}}</button>
     </td>
 </tr>

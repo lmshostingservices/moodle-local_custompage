@@ -359,8 +359,8 @@ class page extends persistent {
     public function move_sortthread(string $oldsortthread, string $newsortthread): bool {
         global $DB;
 
-        $lengthsql = $DB->sql_length("'$oldsortthread'");
-        $substrsql = $DB->sql_substr('sortthread', "$lengthsql + 1");
+        // Sort codes are ASCII, so the length can go in as a number.
+        $substrsql = $DB->sql_substr('sortthread', (string) (strlen($oldsortthread) + 1));
         $sortthread = $DB->sql_concat(":newsortthread", $substrsql);
         $params = ['newsortthread' => $newsortthread, 'oldsortthread' => $oldsortthread,
             'oldsortthreadmatch' => "{$oldsortthread}%"];
@@ -723,6 +723,37 @@ class page extends persistent {
     }
 
     /**
+     * Give the page a sort position at the end of its current level (used after its hub is deleted).
+     *
+     * @throws dml_exception
+     * @throws coding_exception
+     */
+    public function refresh_sortthread(): void {
+        $this->update_moved_page_sortthread();
+    }
+
+    /**
+     * Put the page's context under its hub's context (or the system context for a top-level page).
+     *
+     * Role overrides and blocks shown throughout a hub are inherited through this context path.
+     *
+     * @throws coding_exception
+     * @throws dml_exception
+     */
+    public function update_context_parent(): void {
+        $context = context::instance_by_id((int) $this->raw_get('contextid'), IGNORE_MISSING);
+        if (!$context) {
+            return;
+        }
+        $parentid = (int) $this->get('parent');
+        $newparent = $parentid ? \local_custompage\custom_context\context_custompage::instance($parentid) : system::instance();
+        $current = $context->get_parent_context();
+        if (!$current || (int) $current->id !== (int) $newparent->id) {
+            $context->update_moved($newparent);
+        }
+    }
+
+    /**
      * Update sortthread for a moved page (when parent changes)
      * Only affects this page and its descendants - much more efficient
      *
@@ -851,6 +882,8 @@ class page extends persistent {
 
             // Update sortthread for the moved page and its descendants only.
             $this->update_moved_page_sortthread();
+            // Permissions and blocks follow the new hub.
+            $this->update_context_parent();
 
             $transaction->allow_commit();
         } catch (\Throwable $e) {

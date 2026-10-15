@@ -57,10 +57,10 @@
                         {{#hubs}}
                             <li class="lcp-hubtile lcp-look-{{look}}" data-filter-text="{{filtertext}}">
                                 <a class="lcp-hubtile-link" href="{{url}}">
-                                    <span class="lcp-hubtile-name">{{name}}</span>
+                                    <span class="lcp-hubtile-name">{{{name}}}</span>
                                     {{#summary}}<span class="lcp-hubtile-summary">{{{summary}}}</span>{{/summary}}
                                     <span class="lcp-hubtile-spine" aria-hidden="true">
-                                        {{#preview}}<span class="lcp-hubtile-page">{{name}}</span>{{/preview}}
+                                        {{#preview}}<span class="lcp-hubtile-page">{{{name}}}</span>{{/preview}}
                                         {{#more}}<span class="lcp-hubtile-more">{{#str}}andmore, local_custompage, {{more}}{{/str}}</span>{{/more}}
                                     </span>
                                     <span class="lcp-hubtile-count">{{#str}}npages, local_custompage, {{count}}{{/str}}</span>
@@ -76,7 +76,7 @@
                         <h2 class="lcp-home-heading" id="{{uniqid}}-pages">{{#str}}home_pages, local_custompage{{/str}}</h2>
                         <ul class="lcp-linklist">
                             {{#pages}}
-                                <li data-filter-text="{{filtertext}}"><a href="{{url}}">{{name}}</a>
+                                <li data-filter-text="{{filtertext}}"><a href="{{url}}">{{{name}}}</a>
                                     {{#summary}}<span class="lcp-linklist-note">{{{summary}}}</span>{{/summary}}</li>
                             {{/pages}}
                         </ul>
@@ -87,9 +87,9 @@
                         <h2 class="lcp-home-heading" id="{{uniqid}}-recent">{{#str}}home_recent, local_custompage{{/str}}</h2>
                         <ul class="lcp-linklist">
                             {{#recent}}
-                                <li data-filter-text="{{name}} {{hub}}"><a href="{{url}}">{{name}}</a>
+                                <li data-filter-text="{{filtertext}}"><a href="{{url}}">{{{name}}}</a>
                                     {{#badge}}<span class="lcp-badge lcp-badge-new">{{#str}}badge_new, local_custompage{{/str}}</span>{{/badge}}
-                                    <span class="lcp-linklist-note">{{#hub}}{{hub}}, {{/hub}}{{updated}}</span></li>
+                                    <span class="lcp-linklist-note">{{#hub}}{{{hub}}}, {{/hub}}{{updated}}</span></li>
                             {{/recent}}
                         </ul>
                     </section>

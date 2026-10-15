@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.2.4] - 2026-10-15
+
+### Fixed
+- A page with its own design shown on a wide screen squeezed the design into the narrow "On this page" column.
+  Designed pages now always use the full width, with the outline as a bar above them.
+- Deleting a hub left its pages with the hub's sort position, so the next new hub dragged them along when moved.
+  They now get their own place at the top level (existing sites are repaired on upgrade).
+- Moving a page to another hub, or deleting its hub, left its permissions under the old hub (role overrides and blocks
+  were inherited from the wrong place). Existing sites are repaired on upgrade.
+- Taking a role away or suspending someone now changes what they can see straight away (it could take 30 minutes).
+- Names containing "&" showed as "&amp;" in breadcrumbs, titles, the hub list, the pager and the home page.
+- Deleting a resource in the hub wizard named the wrong item in the confirm box and then left the wizard.
+- The hub list stayed closed and could not be opened after the window got wider (closing a drawer, turning a tablet).
+- The hub's look (Studio, Atelier, Trainerspace) now colours its pages too; they used the theme colour.
+- Saving step 1 of the hub wizard could narrow a hub's audience set on the Edit page form (for example roles plus
+  chosen people). The wizard now offers "Keep the current setting".
+- Wide tables, long links and long words in a page no longer make the whole screen scroll sideways; the manage list
+  scrolls inside its box on phones.
+- Text contrast: filled buttons and accent text use a darker shade when the theme colour is light; grey text darkened.
+- A failed "Was this helpful?" answer no longer stays highlighted; double clicks send one answer.
+
+### Changed
+- Card images accept WebP (and AVIF) where the site knows the type (Moodle 5.0+, or added under Server > File types),
+  up to 10 MB. Large images are saved at most 1600px wide, and photos as JPEG, so hub pages load quickly.
+- Faster: one database query works out which pages someone can see (was one per page), and the main menu no longer
+  loads page text.
+
+### Security
+- Page designs: SVG animation tricks that could run a link's script are removed, and frames showing this site can no
+  longer lift their sandbox. Design CSS can't use @at-root, @use or @forward (which escaped the page or read server
+  files), and CSS errors no longer show server paths.
+- Uninstalling removes the pages' contexts with their blocks and permission overrides.
+- Privacy: people chosen by name in a page's audience are now included in data exports and deletions.
+
 ## [2.2.3] - 2026-10-15
 
 ### Fixed

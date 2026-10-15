@@ -27,7 +27,7 @@
 <nav class="lcp-crumbs" aria-label="{{#str}}breadcrumb, local_custompage{{/str}}">
     <ol>
         {{#crumbs}}
-            <li>{{#url}}<a href="{{url}}">{{name}}</a>{{/url}}{{^url}}<span aria-current="page">{{name}}</span>{{/url}}</li>
+            <li>{{#url}}<a href="{{url}}">{{{name}}}</a>{{/url}}{{^url}}<span aria-current="page">{{{name}}}</span>{{/url}}</li>
         {{/crumbs}}
     </ol>
 </nav>

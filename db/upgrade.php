@@ -150,5 +150,27 @@ function xmldb_local_custompage_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026101700, 'local', 'custompage');
     }
 
+    if ($oldversion < 2026101800) {
+        // 2.2.4: repair pages left behind by an earlier hub delete or move.
+        // Top-level pages that still carry a hub's sort code get a fresh one, so they no longer move with a new hub.
+        $sql = 'SELECT id FROM {local_custompages} WHERE (parent IS NULL OR parent = 0) AND ' . $DB->sql_like('sortthread', ':dot');
+        foreach ($DB->get_fieldset_sql($sql, ['dot' => '%.%']) as $id) {
+            (new \local_custompage\local\models\page((int) $id))->refresh_sortthread();
+        }
+        // Each page's context sits under its hub's context (or the system context), so permissions follow the hub.
+        foreach ($DB->get_fieldset_select('local_custompages', 'id', '1 = 1', [], 'depth ASC, id ASC') as $id) {
+            try {
+                (new \local_custompage\local\models\page((int) $id))->update_context_parent();
+            } catch (\Throwable $e) {
+                debugging(
+                    'local_custompage: could not repair the context of page ' . $id . ': ' . $e->getMessage(),
+                    DEBUG_DEVELOPER
+                );
+            }
+        }
+        \local_custompage\local\helpers\audience::purge_caches();
+        upgrade_plugin_savepoint(true, 2026101800, 'local', 'custompage');
+    }
+
     return true;
 }

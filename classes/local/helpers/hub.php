@@ -39,6 +39,14 @@ class hub {
      */
     public static function get_audience_choice(int $hubid): array {
         $s = audience::get_selection($hubid);
+        // A mix the wizard's single choice cannot show (set on the Edit page form, for example roles plus chosen people,
+        // or visitors only) is kept as it is unless the person picks something else.
+        $simple = ($s->roles && !$s->users && !$s->allusers && !$s->guests)
+            || ($s->users && !$s->roles && !$s->allusers && !$s->guests)
+            || (!$s->roles && !$s->users && ($s->allusers || !$s->guests));
+        if (!$simple) {
+            return ['keep', $s->roles, $s->users];
+        }
         if ($s->roles) {
             return ['roles', $s->roles, []];
         }
@@ -78,12 +86,14 @@ class hub {
             $hub = page::create_page((object) ($fields + ['iscontainer' => 1, 'look' => 'classic']));
         }
         $choice = (string) ($data->audience ?? 'all');
-        audience::set_selection((int) $hub->get('id'), (object) [
-            'allusers' => in_array($choice, ['all', 'public'], true),
-            'guests' => $choice === 'public',
-            'roles' => $choice === 'roles' ? (array) ($data->roles ?? []) : [],
-            'users' => $choice === 'people' ? (array) ($data->users ?? []) : [],
-        ]);
+        if ($choice !== 'keep') {
+            audience::set_selection((int) $hub->get('id'), (object) [
+                'allusers' => in_array($choice, ['all', 'public'], true),
+                'guests' => $choice === 'public',
+                'roles' => $choice === 'roles' ? (array) ($data->roles ?? []) : [],
+                'users' => $choice === 'people' ? (array) ($data->users ?? []) : [],
+            ]);
+        }
         $transaction->allow_commit();
         return new page_model((int) $hub->get('id'));
     }
@@ -153,6 +163,7 @@ class hub {
             0,
             page_form::card_image_options()
         );
+        card_image::shrink((int) $context->id);
         $transaction->allow_commit();
         return $resource;
     }

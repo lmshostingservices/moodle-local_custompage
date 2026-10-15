@@ -41,7 +41,7 @@
             <aside class="lcp-sidebar">
                 <details class="lcp-hubnav" data-region="lcp-hubnav" open>
                     <summary class="lcp-hubnav-summary">
-                        <span class="lcp-hubnav-hub">{{hubname}}</span>
+                        <span class="lcp-hubnav-hub">{{{hubname}}}</span>
                         <span class="lcp-hubnav-pos">{{#str}}pageposition, local_custompage, {"position": {{position}}, "count": {{count}} }{{/str}}</span>
                     </summary>
                     <nav aria-label="{{#str}}inthishub, local_custompage{{/str}}">
@@ -53,8 +53,8 @@
                         {{/showfilter}}
                         <ol class="lcp-spine" id="{{uniqid}}-spine">
                             {{#items}}
-                                <li class="lcp-spine-item{{#current}} is-current{{/current}}" data-filter-text="{{name}}">
-                                    <a href="{{url}}"{{#current}} aria-current="page"{{/current}}>{{name}}</a>
+                                <li class="lcp-spine-item{{#current}} is-current{{/current}}" data-filter-text="{{filtertext}}">
+                                    <a href="{{url}}"{{#current}} aria-current="page"{{/current}}>{{{name}}}</a>
                                 </li>
                             {{/items}}
                         </ol>
@@ -65,7 +65,7 @@
         {{/hassidebar}}
         <article class="lcp-main">
             <header class="lcp-pagehead{{#ownbanner}} lcp-pagehead-compact{{/ownbanner}}">
-                <h1 class="lcp-title{{#ownbanner}} sr-only visually-hidden{{/ownbanner}}">{{name}}</h1>
+                <h1 class="lcp-title{{#ownbanner}} sr-only visually-hidden{{/ownbanner}}">{{{name}}}</h1>
                 <ul class="lcp-meta">
                     <li><span class="lcp-meta-label">{{#str}}updated, local_custompage{{/str}}</span>
                         <time datetime="{{updatediso}}" title="{{updatedfull}}">{{updated}}</time></li>
@@ -86,13 +86,13 @@
                     {{#prev}}
                         <a class="lcp-pager-link lcp-pager-prev" href="{{url}}" rel="prev">
                             <span class="lcp-pager-dir">{{#str}}previous{{/str}}</span>
-                            <span class="lcp-pager-name">{{name}}</span>
+                            <span class="lcp-pager-name">{{{name}}}</span>
                         </a>
                     {{/prev}}
                     {{#next}}
                         <a class="lcp-pager-link lcp-pager-next" href="{{url}}"{{^isoverview}} rel="next"{{/isoverview}}>
                             <span class="lcp-pager-dir">{{#isoverview}}{{#str}}backtohub, local_custompage{{/str}}{{/isoverview}}{{^isoverview}}{{#str}}next{{/str}}{{/isoverview}}</span>
-                            <span class="lcp-pager-name">{{name}}</span>
+                            <span class="lcp-pager-name">{{{name}}}</span>
                         </a>
                     {{/next}}
                 </nav>

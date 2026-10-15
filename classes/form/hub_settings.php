@@ -57,6 +57,10 @@ class hub_settings extends \moodleform {
             'people' => get_string('audiencechoice_people', 'local_custompage'),
             'managers' => get_string('audiencechoice_managers', 'local_custompage'),
         ];
+        if (!empty($this->_customdata['keep'])) {
+            // The hub's current audience is a mix this form can't show: offer to keep it.
+            $options = ['keep' => get_string('audiencechoice_keep', 'local_custompage', $this->_customdata['keep'])] + $options;
+        }
         $radios = [];
         foreach ($options as $value => $label) {
             $radios[] = $mform->createElement('radio', 'audience', '', $label, $value);

@@ -124,7 +124,60 @@ class provider implements
                     )
                    )';
 
-        return $contextlist->add_from_sql($sql, array_fill(0, 6, $userid));
+        $contextlist->add_from_sql($sql, array_fill(0, 6, $userid));
+
+        // Pages whose audience names the user.
+        if ($pageids = array_keys(self::chosen_in_audiences($userid))) {
+            global $DB;
+            [$insql, $params] = $DB->get_in_or_equal($pageids, SQL_PARAMS_NAMED);
+            $contextlist->add_from_sql('SELECT p.contextid FROM {' . page::TABLE . '} p WHERE p.id ' . $insql, $params);
+        }
+        return $contextlist;
+    }
+
+    /**
+     * Audiences that name people one by one, for the pages where they name the user (or anyone, without a user).
+     *
+     * @param int|null $userid
+     * @param int|null $pageid
+     * @return audience[][] page id => audiences
+     */
+    protected static function chosen_in_audiences(?int $userid, ?int $pageid = null): array {
+        $conditions = ['classname' => \local_custompage\custompage\audience\manual::class];
+        if ($pageid) {
+            $conditions['pageid'] = $pageid;
+        }
+        $found = [];
+        foreach (audience::get_records($conditions) as $record) {
+            $users = array_map('intval', (array) (json_decode((string) $record->get('configdata'), true)['users'] ?? []));
+            if ($userid === null ? $users : in_array($userid, $users, true)) {
+                $found[(int) $record->get('pageid')][] = $record;
+            }
+        }
+        return $found;
+    }
+
+    /**
+     * Take people out of the audiences that name them.
+     *
+     * @param int[] $userids
+     * @param int|null $pageid Only this page's audiences
+     */
+    protected static function remove_from_audiences(array $userids, ?int $pageid = null): void {
+        $userids = array_map('intval', $userids);
+        foreach (self::chosen_in_audiences(null, $pageid) as $records) {
+            foreach ($records as $record) {
+                $config = json_decode((string) $record->get('configdata'), true) ?: [];
+                $users = array_map('intval', (array) ($config['users'] ?? []));
+                $left = array_values(array_diff($users, $userids));
+                if ($left !== $users) {
+                    $config['users'] = $left;
+                    $record->set('configdata', json_encode($config));
+                    $record->update();
+                }
+            }
+        }
+        \local_custompage\local\helpers\audience::purge_caches();
     }
 
     /**
@@ -161,6 +214,19 @@ class provider implements
                 WHERE ' . $select;
         $userlist->add_from_sql('usercreated', $sql, $params);
         $userlist->add_from_sql('usermodified', $sql, $params);
+
+        // People named in the page's audience.
+        $context = $userlist->get_context();
+        if ($context->contextlevel == CONTEXT_CUSTOMPAGE) {
+            foreach (self::chosen_in_audiences(null, (int) $context->instanceid) as $records) {
+                foreach ($records as $record) {
+                    $userlist->add_users(array_map(
+                        'intval',
+                        (array) (json_decode((string) $record->get('configdata'), true)['users'] ?? [])
+                    ));
+                }
+            }
+        }
     }
 
     /**
@@ -187,7 +253,19 @@ class provider implements
         ))';
         $params = array_fill(0, 6, $user->id);
 
-        foreach (page::get_records_select($select, $params) as $page) {
+        $chosen = self::chosen_in_audiences((int) $user->id);
+        $pages = page::get_records_select($select, $params);
+        if ($chosen) {
+            $pages = array_merge($pages, page::get_records_select('id IN (' . implode(',', array_map('intval', array_keys($chosen)))
+                . ')'));
+        }
+        $contextids = array_map('intval', $contextlist->get_contextids());
+        $done = [];
+        foreach ($pages as $page) {
+            if (isset($done[$page->get('id')]) || !in_array((int) $page->get('contextid'), $contextids, true)) {
+                continue;
+            }
+            $done[$page->get('id')] = true;
             $subcontext = static::get_export_subcontext($page);
 
             self::export_page($subcontext, $page);
@@ -198,6 +276,15 @@ class provider implements
             // Audiences.
             if ($audiences = audience::get_records_select($select, $params)) {
                 static::export_audiences($page->get_context(), $subcontext, $audiences);
+            }
+
+            // Named in the page's audience.
+            if (!empty($chosen[(int) $page->get('id')])) {
+                writer::with_context($page->get_context())->export_related_data(
+                    $subcontext,
+                    'audience_membership',
+                    (object) ['chosen' => transform::yesno(true)]
+                );
             }
 
             // Their "Was this helpful?" answer.
@@ -226,6 +313,15 @@ class provider implements
         }
         $DB->delete_records(feedback::TABLE, ['pageid' => $context->instanceid]);
         $DB->set_field(page::TABLE, 'ownerid', null, ['id' => $context->instanceid]);
+        foreach (self::chosen_in_audiences(null, (int) $context->instanceid) as $records) {
+            foreach ($records as $record) {
+                $config = json_decode((string) $record->get('configdata'), true) ?: [];
+                $config['users'] = [];
+                $record->set('configdata', json_encode($config));
+                $record->update();
+            }
+        }
+        \local_custompage\local\helpers\audience::purge_caches();
     }
 
     /**
@@ -242,6 +338,7 @@ class provider implements
             }
             $DB->delete_records(feedback::TABLE, ['pageid' => $context->instanceid, 'userid' => $userid]);
             $DB->set_field(page::TABLE, 'ownerid', null, ['id' => $context->instanceid, 'ownerid' => $userid]);
+            self::remove_from_audiences([$userid], (int) $context->instanceid);
         }
     }
 
@@ -260,6 +357,7 @@ class provider implements
         $params['pageid'] = $context->instanceid;
         $DB->delete_records_select(feedback::TABLE, "pageid = :pageid AND userid {$insql}", $params);
         $DB->set_field_select(page::TABLE, 'ownerid', null, "id = :pageid AND ownerid {$insql}", $params);
+        self::remove_from_audiences($userids, (int) $context->instanceid);
     }
 
     /**

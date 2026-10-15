@@ -80,15 +80,32 @@ const initFilters = root => {
 };
 
 /**
- * On phones the hub list starts closed so the page comes first.
+ * On phones the hub list starts closed so the page comes first. When the page area grows wide enough for the
+ * sidebar (a drawer closed, a tablet turned) the list opens again, because the sidebar has no open/close control.
  *
  * @param {HTMLElement} root
  */
 const initHubNav = root => {
     const details = root.querySelector('[data-region="lcp-hubnav"]');
-    if (details && (root.clientWidth < NARROW || root.classList.contains('lcp-sidebar-top'))) {
-        details.open = false;
+    if (!details) {
+        return;
     }
+    if (root.classList.contains('lcp-sidebar-top')) {
+        details.open = false;
+        return;
+    }
+    let wide = root.clientWidth >= NARROW;
+    details.open = wide;
+    if (!('ResizeObserver' in window)) {
+        return;
+    }
+    new ResizeObserver(() => {
+        const nowwide = root.clientWidth >= NARROW;
+        if (nowwide !== wide) {
+            wide = nowwide;
+            details.open = wide;
+        }
+    }).observe(root);
 };
 
 /**
@@ -174,16 +191,30 @@ const initFeedback = root => {
     }])[0];
 
     buttons.forEach(button => button.addEventListener('click', async() => {
+        if (box.dataset.busy === '1') {
+            return;
+        }
+        const previous = helpful;
         helpful = button.dataset.helpful === '1';
-        buttons.forEach(b => b.setAttribute('aria-pressed', b === button ? 'true' : 'false'));
+        box.dataset.busy = '1';
+        buttons.forEach(b => {
+            b.disabled = true;
+        });
         try {
             await send();
+            buttons.forEach(b => b.setAttribute('aria-pressed', b === button ? 'true' : 'false'));
             box.dataset.answered = '1';
             status.textContent = await getString(helpful ? 'feedback_thanks' : 'feedback_sorry', 'local_custompage');
             form.hidden = false;
             textarea.focus();
         } catch (e) {
+            helpful = previous;
             Notification.exception(e);
+        } finally {
+            box.dataset.busy = '0';
+            buttons.forEach(b => {
+                b.disabled = false;
+            });
         }
     }));
 

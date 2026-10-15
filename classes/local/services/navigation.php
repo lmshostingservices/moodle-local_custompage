@@ -44,7 +44,9 @@ class navigation {
         }
 
         [$insql, $params] = $DB->get_in_or_equal($pageids);
-        $pages = $DB->get_records_select('local_custompages', "id $insql", $params, 'parent ASC, sortthread ASC');
+        // Runs on every Moodle page: leave out the page text and design columns.
+        $fields = 'id, name, title, contextid, parent, depth, path, sortthread, iscontainer, showinprimarynav, audiencemode, look';
+        $pages = $DB->get_records_select('local_custompages', "id $insql", $params, 'parent ASC, sortthread ASC', $fields);
 
         $hierarchy = [];
         $pagesbyparent = [];

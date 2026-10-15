@@ -39,6 +39,17 @@ class reader {
     public const WORDS_PER_MINUTE = 200;
 
     /**
+     * Plain text of formatted HTML, for attributes such as a filter's search text (the template escapes it).
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function plain_text(string $html): string {
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return trim(preg_replace('/\s+/u', ' ', $text));
+    }
+
+    /**
      * Name of the intranet home page.
      *
      * @return string

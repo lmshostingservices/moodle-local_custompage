@@ -80,20 +80,26 @@ class audience {
         foreach (audience_model::get_records() as $audience) {
             $pageaudiences[(int) $audience->get('pageid')][] = $audience;
         }
+        // One query for every page: each page's audiences become one branch of a UNION.
+        $branches = [];
+        $params = [];
         foreach ($pageaudiences as $pageid => $audiences) {
-            [$wheres, $params] = self::user_audience_sql($audiences);
+            [$wheres, $branchparams] = self::user_audience_sql($audiences);
             if (!$wheres) {
                 continue;
             }
             $paramuserid = database::generate_param_name();
-            $params[$paramuserid] = $userid;
-            $sql = "SELECT 1
-                      FROM {user} u
-                     WHERE (" . implode(' OR ', $wheres) . ")
-                       AND u.deleted = 0
-                       AND u.id = :{$paramuserid}";
-            if ($DB->record_exists_sql($sql, $params)) {
-                $ownmatch[$pageid] = true;
+            $parampageid = database::generate_param_name();
+            $branches[] = "SELECT :{$parampageid} AS pageid
+                             FROM {user} u
+                            WHERE (" . implode(' OR ', $wheres) . ")
+                              AND u.deleted = 0
+                              AND u.id = :{$paramuserid}";
+            $params += $branchparams + [$paramuserid => $userid, $parampageid => (int) $pageid];
+        }
+        if ($branches) {
+            foreach ($DB->get_fieldset_sql(implode(' UNION ', $branches), $params) as $pageid) {
+                $ownmatch[(int) $pageid] = true;
             }
         }
 
@@ -125,6 +131,17 @@ class audience {
      */
     public static function purge_caches(): void {
         cache::make('local_custompage', 'custompage_allowed_pages')->purge();
+    }
+
+    /**
+     * Forget which pages one user can see, so it is worked out again on their next request.
+     *
+     * @param int $userid
+     */
+    public static function purge_user_cache(int $userid): void {
+        if ($userid > 0) {
+            cache::make('local_custompage', 'custompage_allowed_pages')->delete($userid);
+        }
     }
 
     /**

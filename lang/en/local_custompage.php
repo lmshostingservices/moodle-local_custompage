@@ -42,6 +42,7 @@ $string['audience_user'] = '1 chosen person';
 $string['audience_users'] = '{$a} chosen people';
 $string['audience_usersname'] = 'These people';
 $string['audiencechoice_all'] = 'Everyone who is logged in';
+$string['audiencechoice_keep'] = 'Keep the current setting: {$a}';
 $string['audiencechoice_managers'] = 'Only people who manage pages (draft)';
 $string['audiencechoice_people'] = 'Specific people';
 $string['audiencechoice_public'] = 'Everyone, including visitors who are not logged in';

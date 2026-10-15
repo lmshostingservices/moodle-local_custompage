@@ -117,10 +117,29 @@
     vertical-align: middle;
 }
 
-/* Page body. */
-.local-custompage-content img {
+/* Page body: wide content scrolls inside the page instead of pushing the whole screen sideways. */
+.local-custompage-content img,
+.local-custompage-content video,
+.local-custompage-content iframe,
+.local-custompage-content pre {
     max-width: 100%;
+}
+.local-custompage-content img {
     height: auto;
+}
+.local-custompage-content pre {
+    overflow: auto;
+}
+.local-custompage-content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+}
+.lcp-main,
+.lcp-crumbs,
+.lcp-hubtile-name,
+.local-custompage-card-title {
+    overflow-wrap: anywhere;
 }
 
 /* Hub wizard steps. */
@@ -244,28 +263,34 @@
 
 /* Built-in hub looks. */
 .local-custompage-look-trainerspace,
-.lcp-look-trainerspace {
+.lcp-look-trainerspace,
+.lcp-shell.lcp-look-trainerspace {
     --lcp-accent: #2563eb;
+    --lcp-accent-strong: #2563eb;
     --lcp-ink: #17243b;
-    --lcp-muted: #64748b;
+    --lcp-muted: #556274;
     --lcp-border: #e5ebf3;
     --lcp-soft: #eaf2ff;
     --lcp-hero: linear-gradient(120deg, #eaf2ff, #ffffff);
 }
 .local-custompage-look-atelier,
-.lcp-look-atelier {
+.lcp-look-atelier,
+.lcp-shell.lcp-look-atelier {
     --lcp-accent: #536c59;
+    --lcp-accent-strong: #536c59;
     --lcp-ink: #292d29;
-    --lcp-muted: #77776e;
+    --lcp-muted: #64645c;
     --lcp-border: #e9e6df;
     --lcp-soft: #e8ede5;
     --lcp-hero: linear-gradient(115deg, #f0ede6, #ffffff);
 }
 .local-custompage-look-studio,
-.lcp-look-studio {
+.lcp-look-studio,
+.lcp-shell.lcp-look-studio {
     --lcp-accent: #7056e8;
+    --lcp-accent-strong: #7056e8;
     --lcp-ink: #25233e;
-    --lcp-muted: #72718b;
+    --lcp-muted: #605e78;
     --lcp-border: #e9e6f3;
     --lcp-soft: #eeeaff;
     --lcp-hero: linear-gradient(115deg, #eeeaff, #ffffff);
@@ -285,7 +310,7 @@
     line-height: 1.3;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--lcp-accent);
+    color: var(--lcp-accent-strong, var(--lcp-accent));
 }
 .local-custompage-hero-title {
     font-size: clamp(24px, 4vw, 40px);
@@ -322,7 +347,7 @@
 .local-custompage-look-trainerspace .local-custompage-card-initial,
 .local-custompage-look-atelier .local-custompage-card-initial,
 .local-custompage-look-studio .local-custompage-card-initial {
-    color: var(--lcp-accent);
+    color: var(--lcp-accent-strong, var(--lcp-accent));
 }
 .local-custompage-look-trainerspace .local-custompage-card-title,
 .local-custompage-look-atelier .local-custompage-card-title,
@@ -337,27 +362,12 @@
 .local-custompage-look-trainerspace .local-custompage-card-cta,
 .local-custompage-look-atelier .local-custompage-card-cta,
 .local-custompage-look-studio .local-custompage-card-cta {
-    color: var(--lcp-accent);
+    color: var(--lcp-accent-strong, var(--lcp-accent));
 }
 @media (max-width: 600px) {
     .local-custompage-hero {
         padding: 30px 22px;
     }
-}
-
-/* Pages with their own banner: keep the theme's page title for screen readers only (outside edit mode). */
-body.local-custompage-ownbanner .page-header-headings h1,
-body.local-custompage-ownbanner #page-header h1,
-body.local-custompage-ownbanner .page-context-header h1 {
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    padding: 0 !important;
-    margin: -1px !important;
-    overflow: hidden !important;
-    clip: rect(0, 0, 0, 0) !important;
-    white-space: nowrap !important;
-    border: 0 !important;
 }
 
 /* ---------------------------------------------------------------------------------------------------------------
@@ -367,6 +377,9 @@ body.local-custompage-ownbanner .page-context-header h1 {
 .lcp-shell {
     --lcp-accent: var(--bs-primary, var(--primary, #2457c5));
     --lcp-ink: #1f2733;
+    /* Filled buttons and accent-coloured text use a darker accent so a light theme colour still reads on white. */
+    --lcp-accent-strong: var(--lcp-accent);
+    --lcp-accent-strong: color-mix(in srgb, var(--bs-primary, var(--primary, #2457c5)) 72%, #000);
     --lcp-muted: #5b6675;
     --lcp-rule: #e3e7ee;
     --lcp-canvas: #f6f8fb;
@@ -420,7 +433,7 @@ body.local-custompage-reader #page-header .page-context-header {
 }
 .lcp-crumbs a:hover,
 .lcp-crumbs a:focus {
-    color: var(--lcp-accent);
+    color: var(--lcp-accent-strong, var(--lcp-accent));
     text-decoration: underline;
 }
 .lcp-crumbs [aria-current] {
@@ -441,6 +454,11 @@ body.local-custompage-reader #page-header .page-context-header {
 }
 .lcp-main {
     min-width: 0;
+}
+/* A page with its own design keeps the full width: the hub list sits above it and the outline is the bar at the top. */
+.lcp-sidebar-top .lcp-sidebar,
+.lcp-sidebar-top .lcp-main {
+    grid-column: 1 / -1;
 }
 @container lcp (min-width: 760px) {
     .lcp-has-sidebar:not(.lcp-sidebar-top) .lcp-reader {
@@ -466,14 +484,14 @@ body.local-custompage-reader #page-header .page-context-header {
     }
 }
 @container lcp (min-width: 1080px) {
-    .lcp-has-outline .lcp-reader {
+    .lcp-has-outline:not(.lcp-sidebar-top) .lcp-reader {
         grid-template-columns: minmax(0, 1fr) 12.5rem;
         gap: 2.5rem;
     }
     .lcp-has-sidebar.lcp-has-outline:not(.lcp-sidebar-top) .lcp-reader {
         grid-template-columns: 14.5rem minmax(0, 1fr) 12.5rem;
     }
-    .lcp-has-outline .lcp-outline {
+    .lcp-has-outline:not(.lcp-sidebar-top) .lcp-outline {
         display: block;
     }
 }
@@ -530,7 +548,7 @@ body.local-custompage-reader #page-header .page-context-header {
     display: inline-block;
     margin: 0 0 .75rem;
     font-size: .875rem;
-    color: var(--lcp-accent);
+    color: var(--lcp-accent-strong, var(--lcp-accent));
 }
 .lcp-filter {
     margin: 0 0 .75rem;
@@ -630,7 +648,6 @@ body.local-custompage-reader #page-header .page-context-header {
 }
 .lcp-meta-label {
     color: var(--lcp-muted);
-    opacity: .8;
 }
 .lcp-chip {
     display: inline-block;
@@ -691,7 +708,7 @@ body.local-custompage-reader #page-header .page-context-header {
     color: var(--lcp-ink);
 }
 .lcp-outline-item a[aria-current] {
-    color: var(--lcp-accent);
+    color: var(--lcp-accent-strong, var(--lcp-accent));
     border-left-color: var(--lcp-accent);
     font-weight: 600;
 }
@@ -736,7 +753,7 @@ body.local-custompage-reader #page-header .page-context-header {
 }
 .lcp-pager-link:hover .lcp-pager-name,
 .lcp-pager-link:focus .lcp-pager-name {
-    color: var(--lcp-accent);
+    color: var(--lcp-accent-strong, var(--lcp-accent));
 }
 
 /* Was this page helpful? */
@@ -775,8 +792,8 @@ body.local-custompage-reader #page-header .page-context-header {
     border-color: var(--lcp-accent);
 }
 .lcp-feedback-button[aria-pressed="true"] {
-    background: var(--lcp-accent);
-    border-color: var(--lcp-accent);
+    background: var(--lcp-accent-strong, var(--lcp-accent));
+    border-color: var(--lcp-accent-strong, var(--lcp-accent));
     color: #fff;
 }
 .lcp-feedback-status {
@@ -821,7 +838,7 @@ body.local-custompage-reader #page-header .page-context-header {
     line-height: 1.5;
 }
 .lcp-badge-new {
-    background: var(--lcp-accent);
+    background: var(--lcp-accent-strong, var(--lcp-accent));
     color: #fff;
 }
 .lcp-badge-updated {
@@ -1049,14 +1066,14 @@ body.local-custompage-reader #page-header .page-context-header {
 }
 .lcp-jump .lcp-outline-item a:hover,
 .lcp-jump .lcp-outline-item a:focus {
-    color: var(--lcp-accent);
+    color: var(--lcp-accent-strong, var(--lcp-accent));
     text-decoration: underline;
 }
 .lcp-jump .lcp-outline-item a[aria-current] {
-    color: var(--lcp-accent);
+    color: var(--lcp-accent-strong, var(--lcp-accent));
 }
 @container lcp (min-width: 1080px) {
-    .lcp-has-outline .lcp-jump {
+    .lcp-has-outline:not(.lcp-sidebar-top) .lcp-jump {
         display: none;
     }
 }

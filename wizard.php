@@ -53,9 +53,10 @@ $self = fn(int $s, array $extra = []) => new moodle_url('/local/custompage/wizar
 $manageurl = new moodle_url('/local/custompage/index.php');
 
 if ($step === 1) {
-    $form = new hub_settings($self(1));
+    [$choice, $roles, $users] = $hub ? hub::get_audience_choice((int) $hub->get('id')) : ['all', [], []];
+    $keep = $choice === 'keep' ? \local_custompage\local\helpers\audience::describe($hub) : '';
+    $form = new hub_settings($self(1), ['keep' => $keep]);
     if ($hub) {
-        [$choice, $roles, $users] = hub::get_audience_choice((int) $hub->get('id'));
         $form->set_data([
             'id' => $hub->get('id'),
             'name' => $hub->get('name'),

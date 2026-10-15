@@ -177,9 +177,27 @@ class page extends dynamic_form {
         return [
             'subdirs' => 0,
             'maxfiles' => 1,
-            'maxbytes' => 5 * 1024 * 1024,
-            'accepted_types' => ['web_image'],
+            'maxbytes' => 10 * 1024 * 1024,
+            'accepted_types' => self::card_image_types(),
         ];
+    }
+
+    /**
+     * Image types a card can use: web images, plus WebP and AVIF where the site knows them.
+     *
+     * Moodle 5.0 added WebP to its web images; on 4.x a site admin can add it under Server > File types.
+     *
+     * @return string[]
+     */
+    public static function card_image_types(): array {
+        $types = ['web_image'];
+        $known = \core_filetypes::get_types();
+        foreach (['webp', 'avif'] as $extension) {
+            if (isset($known[$extension]) && !in_array('web_image', $known[$extension]['groups'] ?? [], true)) {
+                $types[] = '.' . $extension;
+            }
+        }
+        return $types;
     }
 
     /**

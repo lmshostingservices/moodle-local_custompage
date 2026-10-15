@@ -107,6 +107,7 @@ class page {
                     0,
                     \local_custompage\form\page::card_image_options()
                 );
+                card_image::shrink((int) $context->id);
             }
         }
 
@@ -207,7 +208,11 @@ class page {
                 'audiencemode' => constants::AUDIENCE_OWN,
             ]);
             $child->parent = null;
-            (new page_model(0, $child))->update_hierarchy();
+            $childpage = new page_model(0, $child);
+            $childpage->update_hierarchy();
+            // A fresh top-level position: the hub's position (and its children's) is reused by the next hub created.
+            $childpage->refresh_sortthread();
+            $childpage->update_context_parent();
             if ($inherited) {
                 audience_helper::set_selection((int) $child->id, $sectionselection);
             }

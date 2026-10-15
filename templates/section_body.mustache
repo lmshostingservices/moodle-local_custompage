@@ -38,14 +38,14 @@
     {{> local_custompage/crumbs }}
     {{#hashero}}
         <div class="local-custompage-hero mb-4">
-            <h1 class="local-custompage-hero-eyebrow">{{name}}</h1>
+            <h1 class="local-custompage-hero-eyebrow">{{{name}}}</h1>
             <p class="local-custompage-hero-title">{{{herotitle}}}</p>
             <span class="local-custompage-hero-count">{{#str}}nresources, local_custompage, {{resourcecount}}{{/str}}</span>
         </div>
     {{/hashero}}
     {{^hashero}}
         <header class="lcp-pagehead">
-            <h1 class="lcp-title{{#ownbanner}} sr-only visually-hidden{{/ownbanner}}">{{name}}</h1>
+            <h1 class="lcp-title{{#ownbanner}} sr-only visually-hidden{{/ownbanner}}">{{{name}}}</h1>
             {{#summary}}<p class="lcp-lead">{{{summary}}}</p>{{/summary}}
         </header>
     {{/hashero}}

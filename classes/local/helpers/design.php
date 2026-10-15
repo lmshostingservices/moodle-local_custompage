@@ -32,7 +32,7 @@ use DOMXPath;
 class design {
     /** @var string[] Elements removed with their content. */
     private const REMOVE = ['script', 'style', 'link', 'meta', 'base', 'title', 'noscript', 'object', 'embed', 'applet', 'frame',
-        'frameset'];
+        'frameset', 'set', 'animate', 'animatetransform', 'animatemotion', 'handler', 'listener'];
 
     /**
      * CSS class that wraps a page's content and scopes its design CSS.
@@ -63,7 +63,11 @@ class design {
         $css = preg_replace('~/\*.*?\*/~s', '', $css);
         $css = preg_replace('~@charset[^;]*;~i', '', $css);
         $imports = [];
-        $css = preg_replace_callback('~@import\s+[^;]+;~i', static function (array $m) use (&$imports): string {
+        // Sass directives that write rules outside the page's wrapper, or load other files, are not allowed.
+        if (preg_match('~@(at-root|use|forward)\b~i', $css)) {
+            throw new \moodle_exception('designcsserror', 'local_custompage', '', '@at-root, @use and @forward');
+        }
+        $css = preg_replace_callback('~@import\b[^;]*;~i', static function (array $m) use (&$imports): string {
             if (preg_match('~(https://(?:fonts\.googleapis\.com|fonts\.bunny\.net)/[^"\')\s;]+)~i', $m[0], $url)) {
                 $imports[] = '@import url("' . $url[1] . '");';
             }
@@ -91,7 +95,10 @@ class design {
             $compiler = new \core_scss();
             $compiled = $compiler->compile($scss);
         } catch (\Throwable $e) {
-            throw new \moodle_exception('designcsserror', 'local_custompage', '', $e->getMessage());
+            // The compiler's message can include server paths: show only the line it stopped at.
+            $where = preg_match('~line:? (\d+)~i', $e->getMessage(), $line)
+                ? 'check near line ' . max(1, (int) $line[1] - 2) : 'check for a missing } or ;';
+            throw new \moodle_exception('designcsserror', 'local_custompage', '', $where);
         }
         // Never let the stylesheet close the style tag it is printed in.
         return str_ireplace('</', '<\/', implode("\n", $imports) . "\n" . $compiled);
@@ -185,7 +192,7 @@ class design {
                 $value = strtolower(preg_replace('~[\s\x00-\x1f]+~', '', (string) $attribute->nodeValue));
                 if (
                     str_starts_with($name, 'on') || $name === 'srcdoc' || $name === 'formaction'
-                        || (in_array($name, ['href', 'src', 'action', 'xlink:href', 'data', 'poster'], true)
+                        || (in_array($name, ['href', 'src', 'action', 'xlink:href', 'data', 'poster', 'to', 'from', 'values', 'by'], true)
                             && (str_starts_with($value, 'javascript:') || str_starts_with($value, 'vbscript:')
                                 || (str_starts_with($value, 'data:') && !str_starts_with($value, 'data:image/'))))
                 ) {
@@ -193,7 +200,13 @@ class design {
                 }
             }
             if (strtolower($element->nodeName) === 'iframe') {
-                $element->setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-presentation');
+                // Scripts plus same-origin would let a frame showing this site lift its own sandbox, so only frames
+                // from other sites (videos, forms, maps) keep their own origin.
+                $sandbox = 'allow-scripts allow-popups allow-presentation';
+                if (self::is_other_site((string) $element->getAttribute('src'))) {
+                    $sandbox .= ' allow-same-origin';
+                }
+                $element->setAttribute('sandbox', $sandbox);
             }
             if (strtolower($element->nodeName) === 'form') {
                 $element->removeAttribute('action');
@@ -201,6 +214,26 @@ class design {
         }
         $body = $doc->getElementsByTagName('body')->item(0);
         return $body ? trim(self::inner_html($body)) : '';
+    }
+
+    /**
+     * Whether a frame address points at another website (not this Moodle site).
+     *
+     * @param string $src
+     * @return bool
+     */
+    private static function is_other_site(string $src): bool {
+        global $CFG;
+        $src = trim($src);
+        if (str_starts_with($src, '//')) {
+            $src = 'https:' . $src;
+        }
+        if (!preg_match('~^https?://~i', $src)) {
+            return false;
+        }
+        $host = strtolower((string) parse_url($src, PHP_URL_HOST));
+        $own = strtolower((string) parse_url($CFG->wwwroot, PHP_URL_HOST));
+        return $host !== '' && $host !== $own;
     }
 
     /**
