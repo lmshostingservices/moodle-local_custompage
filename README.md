@@ -24,7 +24,7 @@ Every page reads like a modern intranet:
 - **Always know where you are.** A breadcrumb (Intranet > hub > page) on every page, and beside each page the hub's contents with the current page marked and "Page 3 of 8". On phones, and on pages with their own design, the list folds into a bar above the page.
 - **Move through a hub in order.** Previous and Next at the foot of each page; the last page leads back to the hub.
 - **Long pages get an outline.** "On this page" lists the page's headings and follows you as you scroll (when the theme leaves room for it).
-- **Intranet home.** One page listing every hub and page the person can open, with search and what changed recently. Name it and add it to the main menu in *Site administration > Appearance > Custom pages > Intranet settings*.
+- **Intranet home.** One page listing every hub and page the person can open, with search and what changed recently. Name it and add it to the main menu in **Intranet settings**: the button on the Custom pages screen, or *Site administration > Plugins > Local plugins > Custom pages*.
 - **Search.** Hubs with six or more pages, and hub lists with eight or more, get an instant filter.
 - **Fresh and owned.** Each page shows when it was last updated, how long it takes to read and who looks after it. New and Updated badges mark recent changes. Set a *Review by* date and managers see when a review is overdue, on the page and in the list.
 - **Was this page helpful?** People answer Yes or No and can add a comment. Totals appear in the Custom pages list, with every comment one click away.

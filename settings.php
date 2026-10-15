@@ -24,7 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$ADMIN->add('appearance', new admin_category('local_custompage', new lang_string('pluginname', 'local_custompage')));
+// The category gets its own name so the settings page can use the plugin's name, which the Plugins overview links to.
+$ADMIN->add('appearance', new admin_category('local_custompage_category', new lang_string('pluginname', 'local_custompage')));
 
 $managepage = new admin_externalpage(
     'local_custompage_manage',
@@ -32,10 +33,10 @@ $managepage = new admin_externalpage(
     new moodle_url('/local/custompage/index.php'),
     'local/custompage:manage'
 );
-$ADMIN->add('local_custompage', $managepage);
+$ADMIN->add('local_custompage_category', $managepage);
 
 if ($hassiteconfig) {
-    $settings = new admin_settingpage('local_custompage_settings', new lang_string('intranetsettings', 'local_custompage'));
+    $settings = new admin_settingpage('local_custompage', new lang_string('intranetsettings', 'local_custompage'));
     if ($ADMIN->fulltree) {
         $setting = new admin_setting_configtext(
             'local_custompage/homelabel',
@@ -61,5 +62,12 @@ if ($hassiteconfig) {
         );
         $settings->add($setting);
     }
-    $ADMIN->add('local_custompage', $settings);
+    $ADMIN->add('local_custompage_category', $settings);
+
+    // Also list it under Plugins > Local plugins, where people look for a plugin's settings.
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_custompage_pluginsettings',
+        new lang_string('pluginname', 'local_custompage'),
+        new moodle_url('/admin/settings.php', ['section' => 'local_custompage'])
+    ));
 }

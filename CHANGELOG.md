@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.2] - 2026-10-15
+
+### Fixed
+- Intranet settings were hard to find. They are now also listed under *Plugins > Local plugins > Custom pages*, found by
+  the admin search, and linked from the Custom pages screen ("Intranet settings", plus "Open the intranet home").
+  (Moodle never shows a Settings link for local plugins on the Plugins overview.)
+
 ## [2.2.1] - 2026-10-15
 
 ### Fixed

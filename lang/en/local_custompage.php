@@ -246,6 +246,7 @@ $string['step_resources'] = 'Resources';
 $string['updated'] = 'Updated';
 $string['updatedwhen'] = 'Updated {$a}';
 $string['upkeep'] = 'Owner and feedback';
+$string['viewintranethome'] = 'Open the intranet home';
 $string['viewpage'] = 'View page';
 $string['when_daysago'] = '{$a} days ago';
 $string['when_today'] = 'today';

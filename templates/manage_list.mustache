@@ -21,7 +21,7 @@
 
     Example context (json):
     {
-        "hasitems": true, "createhuburl": "#", "prompturl": "#",
+        "hasitems": true, "createhuburl": "#", "prompturl": "#", "homeurl": "#", "settingsurl": "#",
         "items": [
             {"id": 1, "name": "Trainer Resources", "url": "#", "issection": true, "inmenu": true,
              "audience": "Role: Trainer", "canmoveup": false, "canmovedown": false, "haschildren": true, "childcount": 1,
@@ -40,9 +40,13 @@
         <button type="button" class="btn btn-secondary mr-2 me-2 mb-2" data-action="local_custompage-new-page" data-parent="0">
             {{#str}}createsinglepage, local_custompage{{/str}}
         </button>
-        <a class="btn btn-outline-secondary mb-2" href="{{prompturl}}">
+        <a class="btn btn-outline-secondary mr-2 me-2 mb-2" href="{{prompturl}}">
             {{#str}}downloadprompt, local_custompage{{/str}}
         </a>
+        <a class="btn btn-outline-secondary mr-2 me-2 mb-2" href="{{homeurl}}">{{#str}}viewintranethome, local_custompage{{/str}}</a>
+        {{#settingsurl}}
+            <a class="btn btn-outline-secondary mb-2" href="{{settingsurl}}">{{#str}}intranetsettings, local_custompage{{/str}}</a>
+        {{/settingsurl}}
     </div>
     <p class="text-muted">{{#str}}managehelp, local_custompage{{/str}}</p>
     {{#hasitems}}

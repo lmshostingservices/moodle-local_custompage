@@ -371,6 +371,9 @@ class renderer extends plugin_renderer_base {
         return $this->render_from_template('local_custompage/manage_list', [
             'createhuburl' => (new moodle_url('/local/custompage/wizard.php'))->out(false),
             'prompturl' => (new moodle_url('/local/custompage/prompt.php'))->out(false),
+            'settingsurl' => has_capability('moodle/site:config', \core\context\system::instance())
+                ? (new moodle_url('/admin/settings.php', ['section' => 'local_custompage']))->out(false) : null,
+            'homeurl' => (new moodle_url('/local/custompage/home.php'))->out(false),
             'items' => $items,
             'hasitems' => !empty($items),
         ]);
