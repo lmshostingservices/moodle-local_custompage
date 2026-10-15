@@ -65,8 +65,7 @@ class hub_settings extends \moodleform {
         $mform->setDefault('audience', 'all');
         $mform->addHelpButton('audiencegroup', 'hubaudience', 'local_custompage');
 
-        $systemroles = array_intersect_key(get_all_roles(), array_flip(get_roles_for_contextlevels(CONTEXT_SYSTEM)));
-        $roles = role_fix_names($systemroles, \core\context\system::instance(), ROLENAME_ALIAS, true);
+        $roles = \local_custompage\local\helpers\audience::selectable_roles();
         $mform->addElement(
             'autocomplete',
             'roles',

@@ -324,8 +324,7 @@ class page extends dynamic_form {
         }
         $mform->addElement('advcheckbox', 'aud_allusers', '', get_string('audience_allusers', 'local_custompage'));
         $mform->addElement('advcheckbox', 'aud_guests', '', get_string('audience_guests_long', 'local_custompage'));
-        $systemroles = array_intersect_key(get_all_roles(), array_flip(get_roles_for_contextlevels(CONTEXT_SYSTEM)));
-        $roles = role_fix_names($systemroles, \core\context\system::instance(), ROLENAME_ALIAS, true);
+        $roles = \local_custompage\local\helpers\audience::selectable_roles();
         $mform->addElement(
             'autocomplete',
             'aud_roles',

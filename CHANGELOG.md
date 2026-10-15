@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.2.3] - 2026-10-15
+
+### Fixed
+- Choosing people by role only offered roles that can be given at site level, so Teacher, Non-editing teacher and
+  custom course roles were missing, and only site-level assignments counted. Every role on the site is now listed
+  (with the site's own names, including custom roles), and holding the role anywhere counts: at site level, in a
+  category or in any course.
+
+### Added
+- Intranet settings: "Show the intranet link to" limits the main menu link to chosen roles (for example teachers and
+  managers but not students). Site administrators and people who manage pages always see it.
+
 ## [2.2.2] - 2026-10-15
 
 ### Fixed

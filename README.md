@@ -64,7 +64,7 @@ Trainers now see **Trainer Resources** in the main menu: a banner and a card for
 |---|---|
 | Everyone who is logged in | Everyone with an account (not the guest user) |
 | Everyone, including visitors who are not logged in | Also guests and anonymous visitors. If the site has *Force users to log in* on (the default for new Moodle 5.2+ sites), visitors log in first. |
-| People with certain roles | Users holding the role at site level (*Assign system roles*) |
+| People with certain roles | Anyone holding one of the roles anywhere on the site: site level, a category or any course (for example every Teacher). All your site's roles are listed, including custom roles. |
 | Chosen people | Individually chosen users |
 | Only people who manage pages | Hidden from everyone else (useful while you build it) |
 

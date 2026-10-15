@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_custompage';
-$plugin->release = '2.2.2';
-$plugin->version = 2026101703;
+$plugin->release = '2.2.3';
+$plugin->version = 2026101704;
 $plugin->requires = 2024042200;     // Moodle 4.4+.
 $plugin->supported = [404, 503];  // Tested on Moodle 4.4 to 5.3.
 $plugin->maturity = MATURITY_STABLE;

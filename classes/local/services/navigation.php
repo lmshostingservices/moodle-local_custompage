@@ -89,6 +89,24 @@ class navigation {
     }
 
     /**
+     * Whether the visitor should see the intranet home link in the main menu.
+     *
+     * With no roles chosen in the Intranet settings, everyone who can open a page sees it. Otherwise only people who
+     * hold one of the chosen roles anywhere on the site, plus site administrators and people who manage pages.
+     *
+     * @return bool
+     */
+    public static function show_home_link(): bool {
+        global $USER;
+        $roles = array_filter(array_map('intval', explode(',', (string) get_config('local_custompage', 'homemenuroles'))));
+        if (!$roles || is_siteadmin() || \local_custompage\permission::can_manage()) {
+            return true;
+        }
+        return isloggedin() && !isguestuser()
+            && \local_custompage\local\helpers\audience::user_has_any_role((int) $USER->id, $roles);
+    }
+
+    /**
      * Add custom pages to the primary navigation.
      *
      * Only top-level pages flagged "Show in primary navigation" are added. A container with visible
@@ -98,7 +116,7 @@ class navigation {
      * @param array $hierarchy As returned by build_page_hierarchy()
      */
     public static function add_to_primary_navigation(\core\navigation\views\primary $primary, array $hierarchy): void {
-        if ($hierarchy && get_config('local_custompage', 'homeinmenu')) {
+        if ($hierarchy && get_config('local_custompage', 'homeinmenu') && self::show_home_link()) {
             // The intranet home, for anyone who can open at least one page.
             $primary->add(
                 \local_custompage\local\helpers\reader::home_label(),

@@ -241,4 +241,63 @@ final class intranet_test extends advanced_testcase {
         $this->assertEmpty(feedback::get_entries($one));
         $this->assertTrue($DB->record_exists('local_custompages', ['id' => $one]), 'Pages themselves are kept');
     }
+
+    /**
+     * Every site role can be chosen, including course roles and custom roles, and holding it in any course counts.
+     */
+    public function test_roles_in_any_context(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $custom = create_role('Assessor', 'assessor', 'A custom role used only in courses');
+        set_role_contextlevels($custom, [CONTEXT_COURSE]);
+        $choices = audience::selectable_roles();
+        $teacher = (int) $DB->get_field('role', 'id', ['shortname' => 'editingteacher']);
+        $noneditor = (int) $DB->get_field('role', 'id', ['shortname' => 'teacher']);
+        $this->assertArrayHasKey($teacher, $choices);
+        $this->assertArrayHasKey($noneditor, $choices);
+        $this->assertArrayHasKey($custom, $choices);
+        $this->assertArrayNotHasKey((int) $DB->get_field('role', 'id', ['shortname' => 'guest']), $choices);
+        $this->assertArrayNotHasKey((int) $DB->get_field('role', 'id', ['shortname' => 'user']), $choices);
+
+        $hub = hub::save_settings((object) ['name' => 'Staff', 'audience' => 'roles', 'roles' => [$noneditor, $custom]], null);
+        $course = $this->getDataGenerator()->create_course();
+        $tutor = $this->getDataGenerator()->create_user();
+        $assessor = $this->getDataGenerator()->create_user();
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($tutor->id, $course->id, 'teacher');
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, 'student');
+        role_assign($custom, $assessor->id, \context_course::instance($course->id)->id);
+
+        $this->assertTrue(permission::can_view_page($hub, (int) $tutor->id), 'Non-editing teacher in a course');
+        $this->assertTrue(permission::can_view_page($hub, (int) $assessor->id), 'Custom course role');
+        $this->assertFalse(permission::can_view_page($hub, (int) $student->id));
+        $this->assertTrue(audience::user_has_any_role((int) $tutor->id, [$noneditor]));
+        $this->assertFalse(audience::user_has_any_role((int) $student->id, [$noneditor, $custom]));
+    }
+
+    /**
+     * The intranet link in the main menu can be limited to roles; admins and page managers always see it.
+     */
+    public function test_home_link_roles(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $teacher = $this->getDataGenerator()->create_user();
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, 'student');
+
+        $this->setUser($student);
+        $this->assertTrue(local\services\navigation::show_home_link(), 'No roles chosen: everyone');
+
+        set_config('homemenuroles', (string) $DB->get_field('role', 'id', ['shortname' => 'editingteacher']), 'local_custompage');
+        $this->assertFalse(local\services\navigation::show_home_link());
+        $this->setUser($teacher);
+        $this->assertTrue(local\services\navigation::show_home_link());
+        $this->setAdminUser();
+        $this->assertTrue(local\services\navigation::show_home_link());
+        $this->setGuestUser();
+        $this->assertFalse(local\services\navigation::show_home_link());
+    }
 }

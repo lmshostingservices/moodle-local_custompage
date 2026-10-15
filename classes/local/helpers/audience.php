@@ -150,6 +150,37 @@ class audience {
     }
 
     /**
+     * Roles people can be chosen by: every role on the site, with the site's own names, including custom roles.
+     *
+     * Guest and Authenticated user are left out: "Everyone who is logged in" and "visitors" cover them.
+     *
+     * @return string[] role id => name
+     */
+    public static function selectable_roles(): array {
+        $builtin = ['guest', 'user', 'frontpage'];
+        $roles = array_filter(get_all_roles(), static fn($role) => !in_array($role->shortname, $builtin, true));
+        return role_fix_names($roles, \core\context\system::instance(), ROLENAME_ALIAS, true);
+    }
+
+    /**
+     * Whether a user holds one of the roles anywhere on the site (site level, a category or a course).
+     *
+     * @param int $userid
+     * @param int[] $roleids
+     * @return bool
+     */
+    public static function user_has_any_role(int $userid, array $roleids): bool {
+        global $DB;
+        $roleids = array_values(array_filter(array_map('intval', $roleids)));
+        if (!$userid || !$roleids) {
+            return false;
+        }
+        [$insql, $params] = $DB->get_in_or_equal($roleids, SQL_PARAMS_NAMED);
+        $params['userid'] = $userid;
+        return $DB->record_exists_select('role_assignments', "userid = :userid AND roleid {$insql}", $params);
+    }
+
+    /**
      * The audience settings of a page, in the shape the page form uses.
      *
      * @param int $pageid

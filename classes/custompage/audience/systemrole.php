@@ -39,7 +39,7 @@ class systemrole extends base {
     }
 
     /**
-     * SQL selecting users with one of the roles assigned at system level.
+     * SQL selecting users who hold one of the roles anywhere on the site: site level, a category or a course.
      *
      * @param string $usertablealias
      * @return array
@@ -49,10 +49,8 @@ class systemrole extends base {
         $roles = array_map("intval", $this->get_configdata()["roles"] ?? []);
         [$insql, $params] = $DB->get_in_or_equal($roles, SQL_PARAMS_NAMED, database::generate_param_name() . "_");
         [$ra] = database::generate_aliases(1);
-        $ctx = database::generate_param_name();
-        $params[$ctx] = \core\context\system::instance()->id;
         $join = "JOIN {role_assignments} {$ra} ON {$ra}.userid = {$usertablealias}.id";
-        return [$join, "{$ra}.contextid = :{$ctx} AND {$ra}.roleid {$insql}", $params];
+        return [$join, "{$ra}.roleid {$insql}", $params];
     }
 
     /**

@@ -54,6 +54,13 @@ if ($hassiteconfig) {
             0
         );
         $settings->add($setting);
+        $setting = new admin_setting_pickroles(
+            'local_custompage/homemenuroles',
+            new lang_string('homemenuroles', 'local_custompage'),
+            new lang_string('homemenuroles_desc', 'local_custompage'),
+            []
+        );
+        $settings->add($setting);
         $setting = new admin_setting_confightmleditor(
             'local_custompage/homeintro',
             new lang_string('homeintro', 'local_custompage'),
